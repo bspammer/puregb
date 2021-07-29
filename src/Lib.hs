@@ -148,7 +148,10 @@ run = bracketGLFW $ do
             let verticies = [
                     -0.5, -0.5, 0.0, -- first vertex
                     0.5, -0.5, 0.0, -- second vertex
-                    0.0,  0.5, 0.0 -- third vertex
+                    0.0,  0.5, 0.0, -- third vertex
+                    0.5, -0.5, 0.0,  -- Bottom Right
+                    -0.5, -0.5, 0.0, -- Bottom Left
+                    -0.5,  0.5, 0.0  -- Top Left
                     ] :: [GLfloat]
             let verticesSize = fromIntegral $ sizeOf (0.0 :: GLfloat) * (length verticies)
             verticesP <- newArray verticies
@@ -185,7 +188,7 @@ run = bracketGLFW $ do
                         glClear GL_COLOR_BUFFER_BIT
                         -- draw the triangle
                         glBindVertexArray vao
-                        glDrawArrays GL_TRIANGLES 0 3
+                        glDrawArrays GL_TRIANGLES 0 6
                         glBindVertexArray 0
                         -- swap buffers and go again
                         GLFW.swapBuffers window
