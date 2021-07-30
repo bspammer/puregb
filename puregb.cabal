@@ -26,6 +26,8 @@ source-repository head
 library
   exposed-modules:
       Lib
+      Rom.Enum
+      Rom.Rom
       Tile
   other-modules:
       Paths_puregb
@@ -36,8 +38,13 @@ library
     , QuickCheck ==2.14.2
     , base >=4.7 && <5
     , bytestring
+    , containers
+    , file-embed
+    , filepath
     , gl
+    , path
     , raw-strings-qq
+    , utf8-string
   default-language: Haskell2010
 
 executable puregb-exe
@@ -52,9 +59,14 @@ executable puregb-exe
     , QuickCheck ==2.14.2
     , base >=4.7 && <5
     , bytestring
+    , containers
+    , file-embed
+    , filepath
     , gl
+    , path
     , puregb
     , raw-strings-qq
+    , utf8-string
   default-language: Haskell2010
 
 test-suite puregb-test
@@ -70,7 +82,12 @@ test-suite puregb-test
     , QuickCheck ==2.14.2
     , base >=4.7 && <5
     , bytestring
+    , containers
+    , file-embed
+    , filepath
     , gl
+    , path
     , puregb
     , raw-strings-qq
+    , utf8-string
   default-language: Haskell2010

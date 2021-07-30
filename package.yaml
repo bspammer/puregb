@@ -26,6 +26,11 @@ dependencies:
 - raw-strings-qq
 - bytestring
 - QuickCheck == 2.14.2
+- path
+- filepath
+- utf8-string
+- file-embed
+- containers
 
 library:
   source-dirs: src
