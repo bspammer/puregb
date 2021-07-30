@@ -3,6 +3,65 @@ module Rom.Enum where
 import Data.Map (Map, fromList)
 import Data.Word (Word8)
 
+data LicenseeCode = None
+    | Nintendo_RD1
+    | Capcom
+    | Electronic_Arts
+    | Hudson_Soft
+    | B_ai
+    | Kss
+    | Pow
+    | PCM_Complete
+    | San_x
+    | Kemco_Japan
+    | Seta
+    | Viacom
+    | Nintendo
+    | Bandai
+    | Ocean_Acclaim
+    | Konami
+    | Hector
+    | Taito
+    | Hudson
+    | Banpresto
+    | Ubi_Soft
+    | Atlus
+    | Malibu
+    | Angel
+    | Bullet_Proof
+    | Irem
+    | Absolute
+    | Acclaim
+    | Activision
+    | American_sammy
+    | Hi_tech_entertainment
+    | LJN
+    | Matchbox
+    | Mattel
+    | Milton_Bradley
+    | Titus
+    | Virgin
+    | LucasArts
+    | Ocean
+    | Infogrames
+    | Interplay
+    | Broderbund
+    | Sculptured
+    | Sci
+    | THQ
+    | Accolade
+    | Misawa
+    | Lozc
+    | Tokuma_Shoten_Intermedia
+    | Tsukuda_Original
+    | Chunsoft
+    | Video_system
+    | Varie
+    | Yonezawas_pal
+    | Kaneko
+    | Pack_in_soft
+    | Konami_Yu_Gi_Oh deriving (Eq ,Show)
+
 licenseeMap :: Map Word8 LicenseeCode
 licenseeMap = fromList [
     (0x00, None),
@@ -68,61 +127,63 @@ licenseeMap = fromList [
     (0xA4, Konami_Yu_Gi_Oh)
     ]
 
-data LicenseeCode = None
-    | Nintendo_RD1
-    | Capcom
-    | Electronic_Arts
-    | Hudson_Soft
-    | B_ai
-    | Kss
-    | Pow
-    | PCM_Complete
-    | San_x
-    | Kemco_Japan
-    | Seta
-    | Viacom
-    | Nintendo
-    | Bandai
-    | Ocean_Acclaim
-    | Konami
-    | Hector
-    | Taito
-    | Hudson
-    | Banpresto
-    | Ubi_Soft
-    | Atlus
-    | Malibu
-    | Angel
-    | Bullet_Proof
-    | Irem
-    | Absolute
-    | Acclaim
-    | Activision
-    | American_sammy
-    | Hi_tech_entertainment
-    | LJN
-    | Matchbox
-    | Mattel
-    | Milton_Bradley
-    | Titus
-    | Virgin
-    | LucasArts
-    | Ocean
-    | Infogrames
-    | Interplay
-    | Broderbund
-    | Sculptured
-    | Sci
-    | THQ
-    | Accolade
-    | Misawa
-    | Lozc
-    | Tokuma_Shoten_Intermedia
-    | Tsukuda_Original
-    | Chunsoft
-    | Video_system
-    | Varie
-    | Yonezawas_pal
-    | Kaneko
-    | Pack_in_soft
-    | Konami_Yu_Gi_Oh deriving (Eq ,Show)
+data CartridgeType = ROM_ONLY
+    | MBC1
+    | MBC1_RAM
+    | MBC1_RAM_BATTERY
+    | MBC2
+    | MBC2_BATTERY
+    | ROM_RAM
+    | ROM_RAM_BATTERY
+    | MMM01
+    | MMM01_RAM
+    | MMM01_RAM_BATTERY
+    | MBC3_TIMER_BATTERY
+    | MBC3_TIMER_RAM_BATTERY
+    | MBC3
+    | MBC3_RAM
+    | MBC3_RAM_BATTERY
+    | MBC5
+    | MBC5_RAM
+    | MBC5_RAM_BATTERY
+    | MBC5_RUMBLE
+    | MBC5_RUMBLE_RAM
+    | MBC5_RUMBLE_RAM_BATTERY
+    | MBC6
+    | MBC7_SENSOR_RUMBLE_RAM_BATTERY
+    | POCKET_CAMERA
+    | BANDAI_TAMA5
+    | HuC3
+    | HuC1_RAM_BATTERY deriving (Eq, Show)
+
+cartridgeTypeMap :: Map Word8 CartridgeType
+cartridgeTypeMap = fromList [
+    (0x00, ROM_ONLY),
+    (0x01, MBC1),
+    (0x02, MBC1_RAM),
+    (0x03, MBC1_RAM_BATTERY),
+    (0x05, MBC2),
+    (0x06, MBC2_BATTERY),
+    (0x08, ROM_RAM),
+    (0x09, ROM_RAM_BATTERY),
+    (0x0B, MMM01),
+    (0x0C, MMM01_RAM),
+    (0x0D, MMM01_RAM_BATTERY),
+    (0x0F, MBC3_TIMER_BATTERY),
+    (0x10, MBC3_TIMER_RAM_BATTERY),
+    (0x11, MBC3),
+    (0x12, MBC3_RAM),
+    (0x13, MBC3_RAM_BATTERY),
+    (0x19, MBC5),
+    (0x1A, MBC5_RAM),
+    (0x1B, MBC5_RAM_BATTERY),
+    (0x1C, MBC5_RUMBLE),
+    (0x1D, MBC5_RUMBLE_RAM),
+    (0x1E, MBC5_RUMBLE_RAM_BATTERY),
+    (0x20, MBC6),
+    (0x22, MBC7_SENSOR_RUMBLE_RAM_BATTERY),
+    (0xFC, POCKET_CAMERA),
+    (0xFD, BANDAI_TAMA5),
+    (0xFE, HuC3),
+    (0xFF, HuC1_RAM_BATTERY)
+    ]

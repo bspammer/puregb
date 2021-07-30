@@ -10,13 +10,13 @@ import Data.FileEmbed (embedFile)
 import Test.QuickCheck
 import Test.QuickCheck.All (quickCheckAll)
 import Test.QuickCheck.Gen (elements)
-import Rom.Enum (LicenseeCode(..), licenseeMap)
+import Rom.Enum (LicenseeCode(..), licenseeMap, CartridgeType(..), cartridgeTypeMap)
 
 data Rom = Rom {
     title :: String,
     licenseeCode :: LicenseeCode,
     sGBFlag :: Word8,
-    cartridgeType :: Word8,
+    cartridgeType :: CartridgeType,
     romSize :: Word8,
     ramSize :: Word8,
     destinationCode :: Word8,
@@ -39,7 +39,8 @@ readRom filepath = do
     rawBytes <- B.readFile filepath
     return Rom {
         title = extractTitle rawBytes,
-        licenseeCode = extractLicenseeCode rawBytes
+        licenseeCode = extractLicenseeCode rawBytes,
+        cartridgeType = extractCartridgeType rawBytes
     }
 
 
@@ -61,6 +62,14 @@ extractLicenseeCode rom = case maybeCode of
         licenseeByte = 0x144
         maybeCode = Data.Map.lookup (B.index rom licenseeByte) licenseeMap
 
+prop_extractCartridgeType = extractCartridgeType exampleRom == MBC1_RAM_BATTERY
+extractCartridgeType :: ByteString -> CartridgeType
+extractCartridgeType rom = case maybeCartridgeType of
+    (Just cartridgeType) -> cartridgeType
+    Nothing -> ROM_ONLY
+    where
+        cartridgeTypeByte = 0x147
+        maybeCartridgeType = Data.Map.lookup (B.index rom cartridgeTypeByte) cartridgeTypeMap
 
 return []
 runTests = $quickCheckAll
