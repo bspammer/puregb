@@ -32,24 +32,26 @@ prop_pixelFromBytePair2 = pixelFromBytePair (0x00, 0x80) 0 == P2
 prop_pixelFromBytePair3 = pixelFromBytePair (0x80, 0x80) 0 == P3
 prop_pixelFromBytePair4 = pixelFromBytePair (0xc6, 0x00) 0 == P1
 pixelFromBytePair :: (Word8, Word8) -> Int -> Pixel
-pixelFromBytePair (left, right) i
+-- 0 <= pixelInBytePair < 8
+pixelFromBytePair (left, right) pixelInBytePair
     | not leftTrue && not rightTrue = P0
     | leftTrue && not rightTrue = P1
     | not leftTrue && rightTrue = P2
     | otherwise = P3
     where 
-        leftTrue = left .&. shift 0x80 (-i) > 0
-        rightTrue = right .&. shift 0x80 (-i) > 0
+        leftTrue = left .&. shift 0x80 (-pixelInBytePair) > 0
+        rightTrue = right .&. shift 0x80 (-pixelInBytePair) > 0
 
 prop_getTilePixel0 = P0 == getTilePixel exampleTileLetterA 0
 prop_getTilePixel1 = P1 == getTilePixel exampleTileLetterA 16
 prop_getTilePixel2 = P2 == getTilePixel exampleTileLetterA 8
 prop_getTilePixel3 = P3 == getTilePixel exampleTileLetterA 1
 getTilePixel :: Tile -> Int -> Pixel
-getTilePixel (Tile tile) i = pixelFromBytePair (left, right) mod8
+-- 0 <= pixelInTile < 64
+getTilePixel (Tile tile) pixelInTile = pixelFromBytePair (left, right) mod8
     where 
-        mod8 = i `mod` 8 
-        pairIndex = (mod8 + (i - mod8) * 2) `div` 8
+        mod8 = pixelInTile `mod` 8
+        pairIndex = (mod8 + (pixelInTile - mod8) * 2) `div` 8
         left = B.index tile pairIndex
         right =  B.index tile (pairIndex + 1)
 
@@ -58,7 +60,7 @@ prop_getTilePixelXY1 = P1 == getTilePixelXY exampleTileLetterA 0 2
 prop_getTilePixelXY2 = P2 == getTilePixelXY exampleTileLetterA 0 1
 prop_getTilePixelXY3 = P3 == getTilePixelXY exampleTileLetterA 1 0
 getTilePixelXY :: Tile -> Int -> Int -> Pixel
-getTilePixelXY t x y = getTilePixel t (y * 8 + x)
+getTilePixelXY tile x y = getTilePixel tile (y * 8 + x)
 
 return []
 runTests = $quickCheckAll
