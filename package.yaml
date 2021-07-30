@@ -24,6 +24,8 @@ dependencies:
 - GLFW-b == 3.3.0.0
 - gl
 - raw-strings-qq
+- bytestring
+- QuickCheck == 2.14.2
 
 library:
   source-dirs: src

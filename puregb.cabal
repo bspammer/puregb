@@ -26,13 +26,16 @@ source-repository head
 library
   exposed-modules:
       Lib
+      Tile
   other-modules:
       Paths_puregb
   hs-source-dirs:
       src
   build-depends:
       GLFW-b ==3.3.0.0
+    , QuickCheck ==2.14.2
     , base >=4.7 && <5
+    , bytestring
     , gl
     , raw-strings-qq
   default-language: Haskell2010
@@ -46,7 +49,9 @@ executable puregb-exe
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       GLFW-b ==3.3.0.0
+    , QuickCheck ==2.14.2
     , base >=4.7 && <5
+    , bytestring
     , gl
     , puregb
     , raw-strings-qq
@@ -62,7 +67,9 @@ test-suite puregb-test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       GLFW-b ==3.3.0.0
+    , QuickCheck ==2.14.2
     , base >=4.7 && <5
+    , bytestring
     , gl
     , puregb
     , raw-strings-qq
