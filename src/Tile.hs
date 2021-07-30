@@ -40,12 +40,12 @@ prop_getTilePixel1 = P1 == getTilePixel exampleTile 16
 prop_getTilePixel2 = P2 == getTilePixel exampleTile 8
 prop_getTilePixel3 = P3 == getTilePixel exampleTile 1
 getTilePixel :: Tile -> Int -> Pixel
-getTilePixel (Tile tile) i = pixelFromBytePair (B.head left, B.head right) (i `mod` 8)
+getTilePixel (Tile tile) i = pixelFromBytePair (left, right) mod8
     where 
-        pairIndex = ((i `mod` 8) + (i - (i `mod` 8)) * 2) `div` 8
-        (_, b) = B.splitAt pairIndex tile
-        (bytePair, _) = B.splitAt (pairIndex + 2) b
-        (left, right) = B.splitAt 1 bytePair
+        mod8 = i `mod` 8 
+        pairIndex = (mod8 + (i - mod8) * 2) `div` 8
+        left = B.index tile pairIndex
+        right =  B.index tile (pairIndex + 1)
 
 -- getTilePixelXY :: Tile -> Int -> Int -> Pixel
 -- getTilePixelXY (Tile t) x y = index t 0
