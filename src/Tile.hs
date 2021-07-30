@@ -47,8 +47,12 @@ getTilePixel (Tile tile) i = pixelFromBytePair (left, right) mod8
         left = B.index tile pairIndex
         right =  B.index tile (pairIndex + 1)
 
--- getTilePixelXY :: Tile -> Int -> Int -> Pixel
--- getTilePixelXY (Tile t) x y = index t 0
+prop_getTilePixelXY0 = P0 == getTilePixelXY exampleTile 0 0
+prop_getTilePixelXY1 = P1 == getTilePixelXY exampleTile 0 2
+prop_getTilePixelXY2 = P2 == getTilePixelXY exampleTile 0 1
+prop_getTilePixelXY3 = P3 == getTilePixelXY exampleTile 1 0
+getTilePixelXY :: Tile -> Int -> Int -> Pixel
+getTilePixelXY t x y = getTilePixel t (y * 8 + x)
 
 return []
 runTests = $quickCheckAll
