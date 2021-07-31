@@ -37,7 +37,8 @@ readRom filepath = do
         cartridgeType = extractCartridgeType rawBytes,
         romSize = extractRomSize rawBytes,
         ramSize = extractRamSize rawBytes,
-        destinationCode = extractDestinationCode rawBytes
+        destinationCode = extractDestinationCode rawBytes,
+        versionNumber = extractVersionNumber rawBytes
     }
 
 rangeFromByteString :: ByteString -> Int -> Int -> ByteString
@@ -103,6 +104,10 @@ extractDestinationCode rom
     | otherwise = NonJapanese
     where
         destinationCode = B.index rom 0x14a
+
+prop_extractVersionNumber = extractVersionNumber exampleRom == 1
+extractVersionNumber :: ByteString -> Word8
+extractVersionNumber = flip B.index 0x14c
 
 return []
 runTests = $quickCheckAll
