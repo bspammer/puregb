@@ -10,7 +10,7 @@ import Data.FileEmbed (embedFile)
 import Test.QuickCheck
 import Test.QuickCheck.All (quickCheckAll)
 import Test.QuickCheck.Gen (elements)
-import Rom.Enum (LicenseeCode(..), licenseeMap, CartridgeType(..), cartridgeTypeMap, RomSize(..), romSizeMap, RamSize(..), ramSizeMap)
+import Rom.Enum (LicenseeCode(..), licenseeMap, CartridgeType(..), cartridgeTypeMap, RomSize(..), romSizeMap, RamSize(..), ramSizeMap, DestinationCode(..))
 
 data Rom = Rom {
     title :: String,
@@ -19,7 +19,7 @@ data Rom = Rom {
     cartridgeType :: CartridgeType,
     romSize :: RomSize,
     ramSize :: RamSize,
-    destinationCode :: Word8,
+    destinationCode :: DestinationCode,
     versionNumber :: Word8,
     headerChecksum :: Word8,
     globalChecksum :: Word16
@@ -36,7 +36,8 @@ readRom filepath = do
         sGBFlag = extractSGBFlag rawBytes,
         cartridgeType = extractCartridgeType rawBytes,
         romSize = extractRomSize rawBytes,
-        ramSize = extractRamSize rawBytes
+        ramSize = extractRamSize rawBytes,
+        destinationCode = extractDestinationCode rawBytes
     }
 
 rangeFromByteString :: ByteString -> Int -> Int -> ByteString
@@ -94,6 +95,14 @@ extractRamSize rom = case maybeRamSize of
     where
         ramSizeByte = 0x149
         maybeRamSize = Data.Map.lookup (B.index rom ramSizeByte) ramSizeMap 
+
+prop_extractDestinationCode = extractDestinationCode exampleRom == Japanese
+extractDestinationCode :: ByteString -> DestinationCode
+extractDestinationCode rom
+    | destinationCode == 0x00 = Japanese
+    | otherwise = NonJapanese
+    where
+        destinationCode = B.index rom 0x14a
 
 return []
 runTests = $quickCheckAll

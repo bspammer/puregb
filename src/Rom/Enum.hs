@@ -231,3 +231,5 @@ ramSizeMap = fromList [
     (0x04, RamSize_128_KB),
     (0x05, RamSize_64_KB)
     ]
+
+data DestinationCode = Japanese | NonJapanese deriving (Eq, Show)
