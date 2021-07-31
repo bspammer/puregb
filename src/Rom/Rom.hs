@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Rom.Rom where
+import Control.Exception (assert, displayException, throw, Exception)
 import Data.Bits (shift, (.|.))
 import Data.ByteString as B
        (break, index, readFile, splitAt, unpack, ByteString)
@@ -16,6 +17,10 @@ import Test.QuickCheck.Gen (elements)
 import Rom.Enum
        (cartridgeTypeMap, licenseeMap, ramSizeMap, romSizeMap, LicenseeCode(..),
         CartridgeType(..), RomSize(..), RamSize(..), DestinationCode(..))
+
+data RomException = InvalidHeaderChecksum !Word8 !Word8 deriving Show
+instance Exception RomException where
+    displayException (InvalidHeaderChecksum romChecksum computedChecksum) = "ROM header checksum '" ++ show romChecksum ++ "' does not match computed header checksum '" ++ show computedChecksum ++ "'."
 
 data Rom = Rom {
     title :: String,
@@ -35,6 +40,7 @@ exampleRom = $(embedFile "data/tobutobugirl/tobu.gb")
 readRom :: FilePath -> IO Rom
 readRom filepath = do
     rawBytes <- B.readFile filepath
+    let headerChecksum = verifyHeaderChecksum rawBytes
     return Rom {
         title = extractTitle rawBytes,
         licenseeCode = extractLicenseeCode rawBytes,
@@ -44,10 +50,11 @@ readRom filepath = do
         ramSize = extractRamSize rawBytes,
         destinationCode = extractDestinationCode rawBytes,
         versionNumber = extractVersionNumber rawBytes,
-        headerChecksum = extractHeaderChecksum rawBytes,
+        headerChecksum = headerChecksum,
         globalChecksum = extractGlobalChecksum rawBytes
     }
 
+-- Returns bytes with indices low <= i < high
 rangeFromByteString :: ByteString -> Int -> Int -> ByteString
 rangeFromByteString byteString low high = result
     where
@@ -100,7 +107,7 @@ extractRomSize rom = case maybeRomSize of
     Nothing -> RomSize_32_KB
     where
         romSizeByte = 0x148
-        maybeRomSize = Data.Map.lookup (B.index rom romSizeByte) romSizeMap 
+        maybeRomSize = Data.Map.lookup (B.index rom romSizeByte) romSizeMap
 
 prop_extractRamSize = extractRamSize exampleRom == RamSize_8_KB
 extractRamSize :: ByteString -> RamSize
@@ -109,7 +116,7 @@ extractRamSize rom = case maybeRamSize of
     Nothing -> RamSize_8_KB
     where
         ramSizeByte = 0x149
-        maybeRamSize = Data.Map.lookup (B.index rom ramSizeByte) ramSizeMap 
+        maybeRamSize = Data.Map.lookup (B.index rom ramSizeByte) ramSizeMap
 
 prop_extractDestinationCode = extractDestinationCode exampleRom == Japanese
 extractDestinationCode :: ByteString -> DestinationCode
@@ -131,12 +138,19 @@ prop_extractGlobalChecksum = extractGlobalChecksum exampleRom == 0xb596
 extractGlobalChecksum :: ByteString -> Word16
 extractGlobalChecksum rom = packBytes (B.index rom 0x14e) (B.index rom 0x14f)
 
-prop_verifyHeaderChecksum = verifyHeaderChecksum exampleRom 0xa4
-verifyHeaderChecksum :: ByteString -> Word8 -> Bool
-verifyHeaderChecksum rom = (== checksum)
+prop_computeHeaderChecksum = computeHeaderChecksum exampleRom == 0xa4
+computeHeaderChecksum :: ByteString -> Word8
+computeHeaderChecksum rom = checksum
     where
         header = rangeFromByteString rom 0x134 0x14d
         checksum = foldl (\x y -> x - y - 1) 0 (unpack header)
+
+prop_verifyHeaderChecksum = verifyHeaderChecksum exampleRom == 0xa4
+verifyHeaderChecksum :: ByteString -> Word8
+verifyHeaderChecksum rom = if romChecksum == computedChecksum then romChecksum else throw $ InvalidHeaderChecksum romChecksum computedChecksum 
+    where
+        romChecksum = extractHeaderChecksum rom
+        computedChecksum = computeHeaderChecksum rom
 
 return []
 runTests = $quickCheckAll
