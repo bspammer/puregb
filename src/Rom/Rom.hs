@@ -10,15 +10,15 @@ import Data.FileEmbed (embedFile)
 import Test.QuickCheck
 import Test.QuickCheck.All (quickCheckAll)
 import Test.QuickCheck.Gen (elements)
-import Rom.Enum (LicenseeCode(..), licenseeMap, CartridgeType(..), cartridgeTypeMap, RomSize(..), romSizeMap)
+import Rom.Enum (LicenseeCode(..), licenseeMap, CartridgeType(..), cartridgeTypeMap, RomSize(..), romSizeMap, RamSize(..), ramSizeMap)
 
 data Rom = Rom {
     title :: String,
     licenseeCode :: LicenseeCode,
     sGBFlag :: Bool,
     cartridgeType :: CartridgeType,
-    romSize :: Word8,
-    ramSize :: Word8,
+    romSize :: RomSize,
+    ramSize :: RamSize,
     destinationCode :: Word8,
     versionNumber :: Word8,
     headerChecksum :: Word8,
@@ -34,7 +34,9 @@ readRom filepath = do
         title = extractTitle rawBytes,
         licenseeCode = extractLicenseeCode rawBytes,
         sGBFlag = extractSGBFlag rawBytes,
-        cartridgeType = extractCartridgeType rawBytes
+        cartridgeType = extractCartridgeType rawBytes,
+        romSize = extractRomSize rawBytes,
+        ramSize = extractRamSize rawBytes
     }
 
 rangeFromByteString :: ByteString -> Int -> Int -> ByteString
@@ -75,14 +77,23 @@ extractCartridgeType rom = case maybeCartridgeType of
         cartridgeTypeByte = 0x147
         maybeCartridgeType = Data.Map.lookup (B.index rom cartridgeTypeByte) cartridgeTypeMap
 
-prop_extractRomSize = extractRomSize exampleRom == Size_256_KB
+prop_extractRomSize = extractRomSize exampleRom == RomSize_256_KB
 extractRomSize :: ByteString -> RomSize
 extractRomSize rom = case maybeRomSize of
     (Just romSize) -> romSize
-    Nothing -> Size_32_KB
+    Nothing -> RomSize_32_KB
     where
         romSizeByte = 0x148
         maybeRomSize = Data.Map.lookup (B.index rom romSizeByte) romSizeMap 
+
+prop_extractRamSize = extractRamSize exampleRom == RamSize_8_KB
+extractRamSize :: ByteString -> RamSize
+extractRamSize rom = case maybeRamSize of
+    (Just ramSize) -> ramSize
+    Nothing -> RamSize_8_KB
+    where
+        ramSizeByte = 0x149
+        maybeRamSize = Data.Map.lookup (B.index rom ramSizeByte) ramSizeMap 
 
 return []
 runTests = $quickCheckAll
