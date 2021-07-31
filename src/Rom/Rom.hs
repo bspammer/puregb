@@ -15,7 +15,7 @@ import Rom.Enum (LicenseeCode(..), licenseeMap, CartridgeType(..), cartridgeType
 data Rom = Rom {
     title :: String,
     licenseeCode :: LicenseeCode,
-    sGBFlag :: Word8,
+    sGBFlag :: Bool,
     cartridgeType :: CartridgeType,
     romSize :: Word8,
     ramSize :: Word8,
@@ -27,27 +27,26 @@ data Rom = Rom {
 
 exampleRom = $(embedFile "data/tobutobugirl/tobu.gb")
 
-rangeFromByteString :: ByteString -> Int -> Int -> ByteString
-rangeFromByteString byteString low high = result
-    where
-        (_, right) = B.splitAt low byteString
-        (result, _) = B.splitAt (high - low) right
-
-
 readRom :: FilePath -> IO Rom
 readRom filepath = do
     rawBytes <- B.readFile filepath
     return Rom {
         title = extractTitle rawBytes,
         licenseeCode = extractLicenseeCode rawBytes,
+        sGBFlag = extractSGBFlag rawBytes,
         cartridgeType = extractCartridgeType rawBytes
     }
 
+rangeFromByteString :: ByteString -> Int -> Int -> ByteString
+rangeFromByteString byteString low high = result
+    where
+        (_, right) = B.splitAt low byteString
+        (result, _) = B.splitAt (high - low) right
 
 prop_extractTitle = extractTitle exampleRom == "TOBU"
 extractTitle :: ByteString -> String
 extractTitle rom = UTF8.toString result
-    where 
+    where
         titleStartByte = 0x134
         titleEndByte = 0x143
         rawBytes = rangeFromByteString rom titleStartByte titleEndByte
@@ -61,6 +60,11 @@ extractLicenseeCode rom = case maybeCode of
     where
         licenseeByte = 0x144
         maybeCode = Data.Map.lookup (B.index rom licenseeByte) licenseeMap
+
+prop_extractSGBFlag = not (extractSGBFlag exampleRom)
+extractSGBFlag :: ByteString -> Bool
+extractSGBFlag rom = B.index rom sGBFlagByte == 0x03
+    where sGBFlagByte = 0x146
 
 prop_extractCartridgeType = extractCartridgeType exampleRom == MBC1_RAM_BATTERY
 extractCartridgeType :: ByteString -> CartridgeType
