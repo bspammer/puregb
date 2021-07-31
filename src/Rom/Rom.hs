@@ -38,7 +38,8 @@ readRom filepath = do
         romSize = extractRomSize rawBytes,
         ramSize = extractRamSize rawBytes,
         destinationCode = extractDestinationCode rawBytes,
-        versionNumber = extractVersionNumber rawBytes
+        versionNumber = extractVersionNumber rawBytes,
+        headerChecksum = extractHeaderChecksum rawBytes
     }
 
 rangeFromByteString :: ByteString -> Int -> Int -> ByteString
@@ -108,6 +109,10 @@ extractDestinationCode rom
 prop_extractVersionNumber = extractVersionNumber exampleRom == 1
 extractVersionNumber :: ByteString -> Word8
 extractVersionNumber = flip B.index 0x14c
+
+prop_extractHeaderChecksum = extractHeaderChecksum exampleRom == 0xa4
+extractHeaderChecksum :: ByteString -> Word8
+extractHeaderChecksum = flip B.index 0x14d
 
 return []
 runTests = $quickCheckAll
