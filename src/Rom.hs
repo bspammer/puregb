@@ -10,15 +10,13 @@ import Data.Map (lookup)
 import Data.Word (Word16, Word8)
 
 import Path.Posix (fromAbsFile, mkAbsFile, Abs, File, Path)
-import Test.QuickCheck
 import Test.QuickCheck.All (quickCheckAll)
-import Test.QuickCheck.Gen (elements)
 
 import Rom.Enum
        (cartridgeTypeMap, licenseeMap, ramSizeMap, romSizeMap, LicenseeCode(..),
         CartridgeType(..), RomSize(..), RamSize(..), DestinationCode(..))
 
-data RomException = InvalidHeaderChecksum !Word8 !Word8 deriving Show
+data RomException = InvalidHeaderChecksum Word8 Word8 deriving Show
 instance Exception RomException where
     displayException (InvalidHeaderChecksum romChecksum computedChecksum) = "ROM header checksum '" ++ show romChecksum ++ "' does not match computed header checksum '" ++ show computedChecksum ++ "'."
 
