@@ -1,7 +1,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Rom.Rom where
 import Data.Bits (shift, (.|.))
-import Data.ByteString as B (break, index, pack, readFile, splitAt, ByteString)
+import Data.ByteString as B
+       (break, index, readFile, splitAt, unpack, ByteString)
 import Data.ByteString.UTF8 as UTF8 (toString)
 import Data.FileEmbed (embedFile)
 import Data.Map (lookup)
@@ -65,7 +66,7 @@ extractTitle :: ByteString -> String
 extractTitle rom = UTF8.toString result
     where
         titleStartByte = 0x134
-        titleEndByte = 0x143
+        titleEndByte = 0x144
         rawBytes = rangeFromByteString rom titleStartByte titleEndByte
         (result, _) = B.break (== 0) rawBytes
 
@@ -129,6 +130,13 @@ extractHeaderChecksum = flip B.index 0x14d
 prop_extractGlobalChecksum = extractGlobalChecksum exampleRom == 0xb596
 extractGlobalChecksum :: ByteString -> Word16
 extractGlobalChecksum rom = packBytes (B.index rom 0x14e) (B.index rom 0x14f)
+
+prop_verifyHeaderChecksum = verifyHeaderChecksum exampleRom 0xa4
+verifyHeaderChecksum :: ByteString -> Word8 -> Bool
+verifyHeaderChecksum rom = (== checksum)
+    where
+        header = rangeFromByteString rom 0x134 0x14d
+        checksum = foldl (\x y -> x - y - 1) 0 (unpack header)
 
 return []
 runTests = $quickCheckAll
