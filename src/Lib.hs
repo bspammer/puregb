@@ -2,16 +2,17 @@
 module Lib
     ( run
     ) where
+import Control.Exception (bracket)
 -- base
 import Control.Monad (when)
-import Control.Exception (bracket)
 import Foreign -- includes many sub-modules
 import Foreign.C.String (newCAStringLen)
--- GLFW-b
-import qualified Graphics.UI.GLFW as GLFW
 -- gl
 import Graphics.GL.Core33
 import Graphics.GL.Types
+-- GLFW-b
+import qualified Graphics.UI.GLFW as GLFW
+
 -- raw-strings-qq
 import Text.RawString.QQ
 

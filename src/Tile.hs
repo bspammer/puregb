@@ -1,9 +1,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Tile where
-
-import Data.Bits ((.&.), shift)
+import Data.Bits (shift, (.&.))
+import Data.ByteString as B (index, pack, replicate, ByteString)
 import Data.Word (Word8)
-import Data.ByteString as B (ByteString, replicate, index, pack)
+
 import Test.QuickCheck.All (quickCheckAll)
 
 data Pixel = P0 | P1 | P2 | P3 deriving (Eq, Ord)

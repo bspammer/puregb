@@ -1,6 +1,5 @@
 module Rom.Enum where
-
-import Data.Map (Map, fromList)
+import Data.Map (fromList, Map)
 import Data.Word (Word8)
 
 data LicenseeCode = None

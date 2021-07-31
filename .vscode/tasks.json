@@ -1,0 +1,10 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Auto-arrange haskell imports",
+            "type": "shell",
+            "command": "fd -e hs | xargs -I '{}' bash -c 'stack exec -- fix-imports -i src -i test -i . {} < {} | sponge {}'"
+        }
+    ]
+}

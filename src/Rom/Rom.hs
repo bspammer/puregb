@@ -1,17 +1,20 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Rom.Rom where
-
-import Data.Map (lookup)
-import Data.Bits ((.|.), shift)
-import Data.ByteString as B (ByteString, readFile, index, splitAt, pack, break)
+import Data.Bits (shift, (.|.))
+import Data.ByteString as B (break, index, pack, readFile, splitAt, ByteString)
 import Data.ByteString.UTF8 as UTF8 (toString)
-import Path.Posix (Path, Abs, File, fromAbsFile, mkAbsFile)
-import Data.Word (Word8, Word16)
 import Data.FileEmbed (embedFile)
+import Data.Map (lookup)
+import Data.Word (Word16, Word8)
+
+import Path.Posix (fromAbsFile, mkAbsFile, Abs, File, Path)
 import Test.QuickCheck
 import Test.QuickCheck.All (quickCheckAll)
 import Test.QuickCheck.Gen (elements)
-import Rom.Enum (LicenseeCode(..), licenseeMap, CartridgeType(..), cartridgeTypeMap, RomSize(..), romSizeMap, RamSize(..), ramSizeMap, DestinationCode(..))
+
+import Rom.Enum
+       (cartridgeTypeMap, licenseeMap, ramSizeMap, romSizeMap, LicenseeCode(..),
+        CartridgeType(..), RomSize(..), RamSize(..), DestinationCode(..))
 
 data Rom = Rom {
     title :: String,

@@ -1,6 +1,5 @@
 module Main where
-
-import Lib ( run )
+import Lib (run)
 
 main :: IO ()
 main = run
