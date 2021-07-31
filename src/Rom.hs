@@ -1,5 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Rom.Rom where
+module Rom where
 import Control.Exception (assert, displayException, throw, Exception)
 import Data.Bits (shift, (.|.))
 import Data.ByteString as B
@@ -34,6 +34,19 @@ data Rom = Rom {
     headerChecksum :: Word8,
     globalChecksum :: Word16
 }
+
+titleStartByte = 0x134
+titleEndByte = 0x144
+licenseeByte = 0x144
+sGBFlagByte = 0x146
+cartridgeTypeByte = 0x147
+romSizeByte = 0x148
+ramSizeByte = 0x149
+destinationCodeByte = 0x14a
+versionNumberByte = 0x14c
+headerChecksumByte = 0x14d
+globalChecksumStartByte = 0x14e
+globalChecksumEndByte = 0x14f
 
 exampleRom = $(embedFile "data/tobutobugirl/tobu.gb")
 
@@ -72,8 +85,6 @@ prop_extractTitle = extractTitle exampleRom == "TOBU"
 extractTitle :: ByteString -> String
 extractTitle rom = UTF8.toString result
     where
-        titleStartByte = 0x134
-        titleEndByte = 0x144
         rawBytes = rangeFromByteString rom titleStartByte titleEndByte
         (result, _) = B.break (== 0) rawBytes
 
@@ -83,13 +94,11 @@ extractLicenseeCode rom = case maybeCode of
     (Just code) -> code
     Nothing -> None
     where
-        licenseeByte = 0x144
         maybeCode = Data.Map.lookup (B.index rom licenseeByte) licenseeMap
 
 prop_extractSGBFlag = not (extractSGBFlag exampleRom)
 extractSGBFlag :: ByteString -> Bool
 extractSGBFlag rom = B.index rom sGBFlagByte == 0x03
-    where sGBFlagByte = 0x146
 
 prop_extractCartridgeType = extractCartridgeType exampleRom == MBC1_RAM_BATTERY
 extractCartridgeType :: ByteString -> CartridgeType
@@ -97,7 +106,6 @@ extractCartridgeType rom = case maybeCartridgeType of
     (Just cartridgeType) -> cartridgeType
     Nothing -> ROM_ONLY
     where
-        cartridgeTypeByte = 0x147
         maybeCartridgeType = Data.Map.lookup (B.index rom cartridgeTypeByte) cartridgeTypeMap
 
 prop_extractRomSize = extractRomSize exampleRom == RomSize_256_KB
@@ -106,7 +114,6 @@ extractRomSize rom = case maybeRomSize of
     (Just romSize) -> romSize
     Nothing -> RomSize_32_KB
     where
-        romSizeByte = 0x148
         maybeRomSize = Data.Map.lookup (B.index rom romSizeByte) romSizeMap
 
 prop_extractRamSize = extractRamSize exampleRom == RamSize_8_KB
@@ -115,7 +122,6 @@ extractRamSize rom = case maybeRamSize of
     (Just ramSize) -> ramSize
     Nothing -> RamSize_8_KB
     where
-        ramSizeByte = 0x149
         maybeRamSize = Data.Map.lookup (B.index rom ramSizeByte) ramSizeMap
 
 prop_extractDestinationCode = extractDestinationCode exampleRom == Japanese
@@ -124,25 +130,25 @@ extractDestinationCode rom
     | destinationCode == 0x00 = Japanese
     | otherwise = NonJapanese
     where
-        destinationCode = B.index rom 0x14a
+        destinationCode = B.index rom destinationCodeByte
 
 prop_extractVersionNumber = extractVersionNumber exampleRom == 1
 extractVersionNumber :: ByteString -> Word8
-extractVersionNumber = flip B.index 0x14c
+extractVersionNumber = flip B.index versionNumberByte
 
 prop_extractHeaderChecksum = extractHeaderChecksum exampleRom == 0xa4
 extractHeaderChecksum :: ByteString -> Word8
-extractHeaderChecksum = flip B.index 0x14d
+extractHeaderChecksum = flip B.index headerChecksumByte
 
 prop_extractGlobalChecksum = extractGlobalChecksum exampleRom == 0xb596
 extractGlobalChecksum :: ByteString -> Word16
-extractGlobalChecksum rom = packBytes (B.index rom 0x14e) (B.index rom 0x14f)
+extractGlobalChecksum rom = packBytes (B.index rom globalChecksumStartByte) (B.index rom globalChecksumEndByte)
 
 prop_computeHeaderChecksum = computeHeaderChecksum exampleRom == 0xa4
 computeHeaderChecksum :: ByteString -> Word8
 computeHeaderChecksum rom = checksum
     where
-        header = rangeFromByteString rom 0x134 0x14d
+        header = rangeFromByteString rom titleStartByte headerChecksumByte
         checksum = foldl (\x y -> x - y - 1) 0 (unpack header)
 
 prop_verifyHeaderChecksum = verifyHeaderChecksum exampleRom == 0xa4
