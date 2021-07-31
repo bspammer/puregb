@@ -187,3 +187,32 @@ cartridgeTypeMap = fromList [
     (0xFE, HuC3),
     (0xFF, HuC1_RAM_BATTERY)
     ]
+
+data RomSize = Size_32_KB
+    | Size_64_KB
+    | Size_128_KB
+    | Size_256_KB
+    | Size_512_KB
+    | Size_1_MB
+    | Size_2_MB
+    | Size_4_MB
+    | Size_8_MB
+    | Size_1_1_MB
+    | Size_1_2_MB
+    | Size_1_5_MB deriving (Eq, Show)
+
+romSizeMap :: Map Word8 RomSize
+romSizeMap = fromList [
+    (0x00, Size_32_KB),
+    (0x01, Size_64_KB),
+    (0x02, Size_128_KB),
+    (0x03, Size_256_KB),
+    (0x04, Size_512_KB),
+    (0x05, Size_1_MB),
+    (0x06, Size_2_MB),
+    (0x07, Size_4_MB),
+    (0x08, Size_8_MB),
+    (0x52, Size_1_1_MB),
+    (0x53, Size_1_2_MB),
+    (0x54, Size_1_5_MB)
+    ]

@@ -10,7 +10,7 @@ import Data.FileEmbed (embedFile)
 import Test.QuickCheck
 import Test.QuickCheck.All (quickCheckAll)
 import Test.QuickCheck.Gen (elements)
-import Rom.Enum (LicenseeCode(..), licenseeMap, CartridgeType(..), cartridgeTypeMap)
+import Rom.Enum (LicenseeCode(..), licenseeMap, CartridgeType(..), cartridgeTypeMap, RomSize(..), romSizeMap)
 
 data Rom = Rom {
     title :: String,
@@ -74,6 +74,15 @@ extractCartridgeType rom = case maybeCartridgeType of
     where
         cartridgeTypeByte = 0x147
         maybeCartridgeType = Data.Map.lookup (B.index rom cartridgeTypeByte) cartridgeTypeMap
+
+prop_extractRomSize = extractRomSize exampleRom == Size_256_KB
+extractRomSize :: ByteString -> RomSize
+extractRomSize rom = case maybeRomSize of
+    (Just romSize) -> romSize
+    Nothing -> Size_32_KB
+    where
+        romSizeByte = 0x148
+        maybeRomSize = Data.Map.lookup (B.index rom romSizeByte) romSizeMap 
 
 return []
 runTests = $quickCheckAll
