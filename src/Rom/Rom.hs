@@ -2,6 +2,7 @@
 module Rom.Rom where
 
 import Data.Map (lookup)
+import Data.Bits ((.|.), shift)
 import Data.ByteString as B (ByteString, readFile, index, splitAt, pack, break)
 import Data.ByteString.UTF8 as UTF8 (toString)
 import Path.Posix (Path, Abs, File, fromAbsFile, mkAbsFile)
@@ -39,7 +40,8 @@ readRom filepath = do
         ramSize = extractRamSize rawBytes,
         destinationCode = extractDestinationCode rawBytes,
         versionNumber = extractVersionNumber rawBytes,
-        headerChecksum = extractHeaderChecksum rawBytes
+        headerChecksum = extractHeaderChecksum rawBytes,
+        globalChecksum = extractGlobalChecksum rawBytes
     }
 
 rangeFromByteString :: ByteString -> Int -> Int -> ByteString
@@ -47,6 +49,13 @@ rangeFromByteString byteString low high = result
     where
         (_, right) = B.splitAt low byteString
         (result, _) = B.splitAt (high - low) right
+
+prop_packBytes0 = packBytes 0xff 0xff == 0xffff
+prop_packBytes1 = packBytes 0xaa 0xbb == 0xaabb
+prop_packBytes2 = packBytes 0x12 0x34 == 0x1234
+prop_packBytes3 = packBytes 0x00 0x00 == 0x0000
+packBytes :: Word8 -> Word8 -> Word16
+packBytes b1 b2 = shift (fromIntegral b1) 8 .|. fromIntegral b2
 
 prop_extractTitle = extractTitle exampleRom == "TOBU"
 extractTitle :: ByteString -> String
@@ -113,6 +122,10 @@ extractVersionNumber = flip B.index 0x14c
 prop_extractHeaderChecksum = extractHeaderChecksum exampleRom == 0xa4
 extractHeaderChecksum :: ByteString -> Word8
 extractHeaderChecksum = flip B.index 0x14d
+
+prop_extractGlobalChecksum = extractGlobalChecksum exampleRom == 0xb596
+extractGlobalChecksum :: ByteString -> Word16
+extractGlobalChecksum rom = packBytes (B.index rom 0x14e) (B.index rom 0x14f)
 
 return []
 runTests = $quickCheckAll
