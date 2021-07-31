@@ -5,6 +5,11 @@
             "label": "Auto-arrange haskell imports",
             "type": "shell",
             "command": "fd -e hs | xargs -I '{}' bash -c 'stack exec -- fix-imports -i src -i test -i . {} < {} | sponge {}'"
+        },
+        {
+            "label": "Run tests",
+            "type": "shell",
+            "command": "stack test"
         }
     ]
 }
