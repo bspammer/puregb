@@ -43,6 +43,7 @@ library
     , file-embed
     , filepath
     , gl
+    , microlens-platform
     , path
     , raw-strings-qq
     , utf8-string
@@ -64,6 +65,7 @@ executable puregb-exe
     , file-embed
     , filepath
     , gl
+    , microlens-platform
     , path
     , puregb
     , raw-strings-qq
@@ -87,6 +89,7 @@ test-suite puregb-test
     , file-embed
     , filepath
     , gl
+    , microlens-platform
     , path
     , puregb
     , raw-strings-qq
