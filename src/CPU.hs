@@ -1,6 +1,8 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RankNTypes #-}
 module CPU where
+
+import Lens.Micro
 import Lens.Micro.Platform
 import Data.Bits (shiftR, shiftL, (.&.), (.|.), xor)
 import Test.QuickCheck (Arbitrary)
@@ -9,6 +11,8 @@ import Data.Word (Word8, Word16)
 
 newtype Register = Register Word16 deriving (Eq, Show)
 newtype SubRegister = SubRegister Word8 deriving (Eq, Show)
+
+data RegisterHalf = Front | Back deriving (Eq, Show)
 
 data CPU = CPU {
     _accumulator :: !SubRegister,
@@ -35,6 +39,12 @@ prop_splitRegister1 = splitRegister (Register 0xffff) == (SubRegister 0xff, SubR
 prop_splitRegister2 = splitRegister (Register 0xabcd) == (SubRegister 0xab, SubRegister 0xcd)
 splitRegister :: Register -> (SubRegister, SubRegister)
 splitRegister (Register word) = (SubRegister $ fromIntegral (shiftR (word .&. 0xff00) 8), SubRegister $ fromIntegral (word .&. 0xff))
+
+prop_joinRegister0 b1 b2 = Register (shiftL (fromIntegral b1) 8 .|. fromIntegral b2) == joinRegister (SubRegister b1, SubRegister b2)
+prop_joinRegister1 = Register 0xffff == joinRegister (SubRegister 0xff, SubRegister 0xff)
+prop_joinRegister2 = Register 0xabcd == joinRegister (SubRegister 0xab, SubRegister 0xcd)
+joinRegister :: (SubRegister, SubRegister) -> Register
+joinRegister (SubRegister word1, SubRegister word2) = Register $ fromIntegral (shiftL (fromIntegral word1 :: Word16) 8 .|. (fromIntegral word2 :: Word16))
 
 bitForFlag :: Flag -> Int
 bitForFlag Zero = 7
@@ -81,6 +91,16 @@ halfCarryFlagLens = flagLens HalfCarry
 
 carryFlagLens :: Lens' CPU Bool
 carryFlagLens = flagLens Carry
+
+prop_registerHalfLensGet0 = Register 0x1234 ^. registerHalfLens Front == SubRegister 0x12
+prop_registerHalfLensGet1 = Register 0x1234 ^. registerHalfLens Back == SubRegister 0x34
+prop_registerHalfLensSet0 = (Register 0x1234 & (registerHalfLens Front .~ SubRegister 0x56)) == Register 0x5634
+prop_registerHalfLensSet1 = (Register 0x1234 & (registerHalfLens Back .~ SubRegister 0x56)) == Register 0x1256
+registerHalfLens :: RegisterHalf -> Lens' Register SubRegister 
+registerHalfLens rHalf = lens getter setter
+    where
+        getter = (^. (if rHalf == Front then _1 else _2)) . splitRegister
+        setter r s = joinRegister $ splitRegister r & (if rHalf == Front then _1 else _2) .~ s
 
 return []
 runTests = $quickCheckAll
