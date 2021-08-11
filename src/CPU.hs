@@ -2,7 +2,7 @@
 {-# LANGUAGE RankNTypes #-}
 module CPU where
 import Lens.Micro.Platform
-import Data.Bits (shiftR, shiftL, (.&.), (.|.))
+import Data.Bits (shiftR, shiftL, (.&.), (.|.), xor)
 import Test.QuickCheck (Arbitrary)
 import Test.QuickCheck.All (quickCheckAll)
 import Data.Word (Word8, Word16)
@@ -57,12 +57,30 @@ prop_flagLensSet0 = (exampleZeroCPU & flagLens Zero .~ True) == exampleZeroCPU {
 prop_flagLensSet1 = (exampleZeroCPU & flagLens Subtraction .~ True) == exampleZeroCPU {_flags=SubRegister 0x40}
 prop_flagLensSet2 = (exampleZeroCPU & flagLens HalfCarry .~ True) == exampleZeroCPU {_flags=SubRegister 0x20}
 prop_flagLensSet3 = (exampleZeroCPU & flagLens Carry .~ True) == exampleZeroCPU {_flags=SubRegister 0x10}
+prop_flagLensSet4 = (exampleZeroCPU & flagLens Carry .~ True & flagLens Carry .~ False) == exampleZeroCPU {_flags=SubRegister 0x00}
+prop_flagLensSet5 = (exampleZeroCPU & flagLens Zero .~ True
+                                    & flagLens Subtraction .~ True
+                                    & flagLens HalfCarry .~ True
+                                    & flagLens Carry .~ True
+                    ) == exampleZeroCPU {_flags=SubRegister 0xf0}
 flagLens :: Flag -> Lens' CPU Bool
 flagLens flag = lens getter setter
     where
         flagIndex = shiftL 1 (bitForFlag flag)
         getter CPU {_flags=(SubRegister w)} = w .&. flagIndex > 0
-        setter cpu@CPU {_flags=(SubRegister w)} b = cpu {_flags=SubRegister (if b then w .|. flagIndex else w .&. flagIndex)}
+        setter cpu@CPU {_flags=(SubRegister w)} b = cpu & flags .~ SubRegister (if b then w .|. flagIndex else w .&. (flagIndex `xor` 0xff))
+
+zeroFlagLens :: Lens' CPU Bool
+zeroFlagLens = flagLens Zero
+
+subtractionFlagLens :: Lens' CPU Bool
+subtractionFlagLens = flagLens Subtraction
+
+halfCarryFlagLens :: Lens' CPU Bool
+halfCarryFlagLens = flagLens HalfCarry
+
+carryFlagLens :: Lens' CPU Bool
+carryFlagLens = flagLens Carry
 
 return []
 runTests = $quickCheckAll
