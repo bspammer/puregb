@@ -1,7 +1,9 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RankNTypes #-}
 module CPU where
 import Lens.Micro.Platform
 import Data.Bits (shiftR, shiftL, (.&.), (.|.))
+import Test.QuickCheck (Arbitrary)
 import Test.QuickCheck.All (quickCheckAll)
 import Data.Word (Word8, Word16)
 
@@ -14,13 +16,13 @@ data CPU = CPU {
     _bc :: !Register,
     _de :: !Register,
     _hl :: !Register
-}
+} deriving (Eq, Show)
 
 makeLenses ''CPU
 
 data Flag = Zero | Subtraction | HalfCarry | Carry
 
-exampleCPU = CPU {
+exampleZeroCPU = CPU {
     _accumulator = SubRegister 0x00,
     _flags = SubRegister 0x00,
     _bc = Register 0x0000,
@@ -40,14 +42,27 @@ bitForFlag Subtraction = 6
 bitForFlag HalfCarry = 5
 bitForFlag Carry = 4
 
-prop_getFlagZero byte = getFlag Zero (flags .~ SubRegister byte $ exampleCPU) == (byte .&. 0x80 > 0)
-prop_getFlagSubtraction byte = getFlag Subtraction (flags .~ SubRegister byte $ exampleCPU) == (byte .&. 0x40 > 0)
-prop_getFlagHalfCarry byte = getFlag HalfCarry (flags .~ SubRegister byte $ exampleCPU) == (byte .&. 0x20 > 0)
-prop_getFlagCarry byte = getFlag Carry (flags .~ SubRegister byte $ exampleCPU) == (byte .&. 0x10 > 0)
+prop_getFlagZero byte = getFlag Zero (flags .~ SubRegister byte $ exampleZeroCPU) == (byte .&. 0x80 > 0)
+prop_getFlagSubtraction byte = getFlag Subtraction (flags .~ SubRegister byte $ exampleZeroCPU) == (byte .&. 0x40 > 0)
+prop_getFlagHalfCarry byte = getFlag HalfCarry (flags .~ SubRegister byte $ exampleZeroCPU) == (byte .&. 0x20 > 0)
+prop_getFlagCarry byte = getFlag Carry (flags .~ SubRegister byte $ exampleZeroCPU) == (byte .&. 0x10 > 0)
 getFlag :: Flag -> CPU -> Bool
-getFlag flag CPU {_flags = SubRegister f} = extractBit (bitForFlag flag) > 0
+getFlag flag = (^. flagLens flag)
+
+prop_flagLensGet0 = not (exampleZeroCPU ^. flagLens Zero)
+prop_flagLensGet1 = not (exampleZeroCPU ^. flagLens Subtraction)
+prop_flagLensGet2 = not (exampleZeroCPU ^. flagLens HalfCarry)
+prop_flagLensGet3 = not (exampleZeroCPU ^. flagLens Carry)
+prop_flagLensSet0 = (exampleZeroCPU & flagLens Zero .~ True) == exampleZeroCPU {_flags=SubRegister 0x80}
+prop_flagLensSet1 = (exampleZeroCPU & flagLens Subtraction .~ True) == exampleZeroCPU {_flags=SubRegister 0x40}
+prop_flagLensSet2 = (exampleZeroCPU & flagLens HalfCarry .~ True) == exampleZeroCPU {_flags=SubRegister 0x20}
+prop_flagLensSet3 = (exampleZeroCPU & flagLens Carry .~ True) == exampleZeroCPU {_flags=SubRegister 0x10}
+flagLens :: Flag -> Lens' CPU Bool
+flagLens flag = lens getter setter
     where
-        extractBit bit = f .&. shiftL 1 bit
+        flagIndex = shiftL 1 (bitForFlag flag)
+        getter CPU {_flags=(SubRegister w)} = w .&. flagIndex > 0
+        setter cpu@CPU {_flags=(SubRegister w)} b = cpu {_flags=SubRegister (if b then w .|. flagIndex else w .&. flagIndex)}
 
 return []
 runTests = $quickCheckAll
