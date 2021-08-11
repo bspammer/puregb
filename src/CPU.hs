@@ -11,6 +11,8 @@ import Data.Word (Word8, Word16)
 
 newtype Register = Register Word16 deriving (Eq, Show)
 newtype SubRegister = SubRegister Word8 deriving (Eq, Show)
+newtype StackPointer = StackPointer Word16 deriving (Eq, Show)
+newtype ProgramCounter = ProgramCounter Word16 deriving (Eq, Show)
 
 data RegisterHalf = Front | Back deriving (Eq, Show)
 
@@ -19,7 +21,9 @@ data CPU = CPU {
     _flags :: !SubRegister,
     _bc :: !Register,
     _de :: !Register,
-    _hl :: !Register
+    _hl :: !Register,
+    _sp :: !StackPointer,
+    _pc :: !ProgramCounter
 } deriving (Eq, Show)
 
 makeLenses ''CPU
@@ -31,7 +35,9 @@ exampleZeroCPU = CPU {
     _flags = SubRegister 0x00,
     _bc = Register 0x0000,
     _de = Register 0x0000,
-    _hl = Register 0x0000
+    _hl = Register 0x0000,
+    _sp = StackPointer 0x0000,
+    _pc = ProgramCounter 0x0000
 }
 
 prop_splitRegister0 b1 b2 = splitRegister (Register (shiftL (fromIntegral b1) 8 .|. fromIntegral b2)) == (SubRegister b1, SubRegister b2)
