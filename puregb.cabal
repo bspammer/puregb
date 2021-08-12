@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       CPU
+      CPU.Instruction
       Lib
       Rom
       Rom.Enum

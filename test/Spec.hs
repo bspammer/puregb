@@ -1,9 +1,9 @@
 import Control.Monad (sequence)
+import Data.Bits
 import Data.ByteString as B (readFile)
 import System.Exit (exitFailure, exitSuccess)
 
-import Data.Bits
-import CPU 
+import CPU
 import Rom (runTests)
 import Tile (runTests)
 

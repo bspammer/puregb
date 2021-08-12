@@ -1,13 +1,12 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RankNTypes #-}
 module CPU where
-
+import Data.Bits (shiftL, shiftR, xor, (.&.), (.|.))
+import Data.Word (Word16, Word8)
 import Lens.Micro
 import Lens.Micro.Platform
-import Data.Bits (shiftR, shiftL, (.&.), (.|.), xor)
 import Test.QuickCheck (Arbitrary)
 import Test.QuickCheck.All (quickCheckAll)
-import Data.Word (Word8, Word16)
 
 newtype Register = Register Word16 deriving (Eq, Show)
 newtype SubRegister = SubRegister Word8 deriving (Eq, Show)
