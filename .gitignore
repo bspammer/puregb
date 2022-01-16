@@ -1,2 +1,4 @@
 .stack-work/
 *~
+data/boot.gb
+data/gb-roms

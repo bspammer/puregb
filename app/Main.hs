@@ -1,5 +1,9 @@
 module Main where
-import Lib (run)
+
+import CPU (CPU)
+import qualified Data.ByteString (ByteString, readFile)
 
 main :: IO ()
-main = run
+main = do
+    file <- Data.ByteString.readFile "data/boot.gb"
+    file
