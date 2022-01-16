@@ -5,7 +5,7 @@ import Data.Map (fromList, Map)
 import Data.Word (Word8)
 import Lens.Micro.Platform
 
-import CPU ( CPU (..))
+import CPU ( CPU (..), SubRegister (..), joinRegister, bc, de, hl, sp)
 
 type RunnableInstruction = CPU -> CPU
 
@@ -21,7 +21,7 @@ instruction_00 = id
 
 -- 0x01 "LD BC,d16", 3 byte operand, 12 cycles -,-,-,-
 instruction_01 :: Instruction2
-instruction_01 b1 b2 = stubInstruction "0x01"
+instruction_01 b1 b2 = set bc (joinRegister (SubRegister b1, SubRegister b2))
 
 -- 0x02 "LD (BC),A", 1 byte operand, 8 cycles -,-,-,-
 instruction_02 :: RunnableInstruction
@@ -85,7 +85,7 @@ instruction_10 b = stubInstruction "0x10"
 
 -- 0x11 "LD DE,d16", 3 byte operand, 12 cycles -,-,-,-
 instruction_11 :: Instruction2
-instruction_11 b1 b2 = stubInstruction "0x11"
+instruction_11 b1 b2 = set de (joinRegister (SubRegister b1, SubRegister b2))
 
 -- 0x12 "LD (DE),A", 1 byte operand, 8 cycles -,-,-,-
 instruction_12 :: RunnableInstruction
@@ -149,7 +149,7 @@ instruction_20 b = stubInstruction "0x20"
 
 -- 0x21 "LD HL,d16", 3 byte operand, 12 cycles -,-,-,-
 instruction_21 :: Instruction2
-instruction_21 b1 b2 = stubInstruction "0x21"
+instruction_21 b1 b2 = set hl (joinRegister (SubRegister b1, SubRegister b2))
 
 -- 0x22 "LD (HL+),A", 1 byte operand, 8 cycles -,-,-,-
 instruction_22 :: RunnableInstruction
@@ -213,7 +213,7 @@ instruction_30 b = stubInstruction "0x30"
 
 -- 0x31 "LD SP,d16", 3 byte operand, 12 cycles -,-,-,-
 instruction_31 :: Instruction2
-instruction_31 b1 b2 = stubInstruction "0x31"
+instruction_31 b1 b2 = set sp (joinRegister (SubRegister b1, SubRegister b2))
 
 -- 0x32 "LD (HL-),A", 1 byte operand, 8 cycles -,-,-,-
 instruction_32 :: RunnableInstruction

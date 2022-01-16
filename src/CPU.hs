@@ -10,8 +10,6 @@ import Test.QuickCheck.All (quickCheckAll)
 
 newtype Register = Register Word16 deriving (Eq, Show)
 newtype SubRegister = SubRegister Word8 deriving (Eq, Show)
-newtype StackPointer = StackPointer Word16 deriving (Eq, Show)
-newtype ProgramCounter = ProgramCounter Word16 deriving (Eq, Show)
 
 data RegisterHalf = Front | Back deriving (Eq, Show)
 
@@ -21,8 +19,8 @@ data CPU = CPU {
     _bc :: !Register,
     _de :: !Register,
     _hl :: !Register,
-    _sp :: !StackPointer,
-    _pc :: !ProgramCounter
+    _sp :: !Register,
+    _pc :: !Register
 } deriving (Eq, Show)
 
 makeLenses ''CPU
@@ -35,8 +33,8 @@ exampleZeroCPU = CPU {
     _bc = Register 0x0000,
     _de = Register 0x0000,
     _hl = Register 0x0000,
-    _sp = StackPointer 0x0000,
-    _pc = ProgramCounter 0x0000
+    _sp = Register 0x0000,
+    _pc = Register 0x0000
 }
 
 prop_splitRegister0 b1 b2 = splitRegister (Register (shiftL (fromIntegral b1) 8 .|. fromIntegral b2)) == (SubRegister b1, SubRegister b2)
