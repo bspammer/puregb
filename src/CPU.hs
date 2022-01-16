@@ -107,5 +107,6 @@ registerHalfLens rHalf = lens getter setter
         getter = (^. (if rHalf == Front then _1 else _2)) . splitRegister
         setter r s = joinRegister $ splitRegister r & (if rHalf == Front then _1 else _2) .~ s
 
+
 return []
 runTests = $quickCheckAll

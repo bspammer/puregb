@@ -6,4 +6,4 @@ import qualified Data.ByteString (ByteString, readFile)
 main :: IO ()
 main = do
     file <- Data.ByteString.readFile "data/boot.gb"
-    file
+    putStrLn "hi"
