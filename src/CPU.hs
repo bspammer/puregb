@@ -4,7 +4,7 @@ module CPU where
 import Data.Bits (shiftL, shiftR, xor, (.&.), (.|.))
 import Data.Word (Word16, Word8)
 import Lens.Micro
-import Lens.Micro.Platform
+import Lens.Micro.Platform ( makeLenses )
 import Test.QuickCheck (Arbitrary)
 import Test.QuickCheck.All (quickCheckAll)
 

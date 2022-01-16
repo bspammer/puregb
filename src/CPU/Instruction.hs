@@ -4,6 +4,7 @@ module CPU.Instruction where
 import Data.Map (fromList, Map)
 import Data.Word (Word8)
 import Lens.Micro.Platform
+import Test.QuickCheck.All (quickCheckAll)
 
 import CPU ( CPU (..), SubRegister (..), joinRegister, bc, de, hl, sp)
 
@@ -2062,3 +2063,7 @@ instruction_cbfe b = stubInstruction "0xcbfe"
 -- 0xcbff "SET 7,A", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbff :: Instruction1
 instruction_cbff b = stubInstruction "0xcbff"
+
+
+return []
+runTests = $quickCheckAll
