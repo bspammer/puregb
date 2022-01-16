@@ -3,6 +3,7 @@
 module CPU where
 import Data.Bits (shiftL, shiftR, xor, (.&.), (.|.))
 import Data.Word (Word16, Word8)
+import Data.Array (Array, array)
 import Lens.Micro
 import Lens.Micro.Platform ( makeLenses )
 import Test.QuickCheck (Arbitrary)
@@ -20,13 +21,15 @@ data CPU = CPU {
     _de :: !Register,
     _hl :: !Register,
     _sp :: !Register,
-    _pc :: !Register
+    _pc :: !Register,
+    _ram :: !(Array Word16 Word8)
 } deriving (Eq, Show)
 
 makeLenses ''CPU
 
 data Flag = Zero | Subtraction | HalfCarry | Carry
 
+memorySize = 8 * 1024
 exampleZeroCPU = CPU {
     _accumulator = SubRegister 0x00,
     _flags = SubRegister 0x00,
@@ -34,7 +37,8 @@ exampleZeroCPU = CPU {
     _de = Register 0x0000,
     _hl = Register 0x0000,
     _sp = Register 0x0000,
-    _pc = Register 0x0000
+    _pc = Register 0x0000,
+    _ram = array (0, memorySize) [(i, 0) | i <- [0..memorySize]]
 }
 
 prop_splitRegister0 b1 b2 = splitRegister (Register (shiftL (fromIntegral b1) 8 .|. fromIntegral b2)) == (SubRegister b1, SubRegister b2)
@@ -43,6 +47,7 @@ prop_splitRegister2 = splitRegister (Register 0xabcd) == (SubRegister 0xab, SubR
 splitRegister :: Register -> (SubRegister, SubRegister)
 splitRegister (Register word) = (SubRegister $ fromIntegral (shiftR (word .&. 0xff00) 8), SubRegister $ fromIntegral (word .&. 0xff))
 
+prop_joinRegister0 :: Word8 -> Word8 -> Bool
 prop_joinRegister0 b1 b2 = Register (shiftL (fromIntegral b1) 8 .|. fromIntegral b2) == joinRegister (SubRegister b1, SubRegister b2)
 prop_joinRegister1 = Register 0xffff == joinRegister (SubRegister 0xff, SubRegister 0xff)
 prop_joinRegister2 = Register 0xabcd == joinRegister (SubRegister 0xab, SubRegister 0xcd)
@@ -61,6 +66,12 @@ prop_getFlagHalfCarry byte = getFlag HalfCarry (flags .~ SubRegister byte $ exam
 prop_getFlagCarry byte = getFlag Carry (flags .~ SubRegister byte $ exampleZeroCPU) == (byte .&. 0x10 > 0)
 getFlag :: Flag -> CPU -> Bool
 getFlag flag = (^. flagLens flag)
+
+subRegisterValue :: SubRegister -> Word8
+subRegisterValue (SubRegister w8) = w8
+
+registerValue :: Register -> Word16
+registerValue (Register w16) = w16
 
 prop_flagLensGet0 = not (exampleZeroCPU ^. flagLens Zero)
 prop_flagLensGet1 = not (exampleZeroCPU ^. flagLens Subtraction)
@@ -83,24 +94,24 @@ flagLens flag = lens getter setter
         getter CPU {_flags=(SubRegister w)} = w .&. flagIndex > 0
         setter cpu@CPU {_flags=(SubRegister w)} b = cpu & flags .~ SubRegister (if b then w .|. flagIndex else w .&. (flagIndex `xor` 0xff))
 
-zeroFlagLens :: Lens' CPU Bool
-zeroFlagLens = flagLens Zero
+zeroFlag :: Lens' CPU Bool
+zeroFlag = flagLens Zero
 
-subtractionFlagLens :: Lens' CPU Bool
-subtractionFlagLens = flagLens Subtraction
+subtractionFlag :: Lens' CPU Bool
+subtractionFlag = flagLens Subtraction
 
-halfCarryFlagLens :: Lens' CPU Bool
-halfCarryFlagLens = flagLens HalfCarry
+halfCarryFlag :: Lens' CPU Bool
+halfCarryFlag = flagLens HalfCarry
 
-carryFlagLens :: Lens' CPU Bool
-carryFlagLens = flagLens Carry
+carryFlag :: Lens' CPU Bool
+carryFlag = flagLens Carry
 
-prop_registerHalfLensGet0 = Register 0x1234 ^. registerHalfLens Front == SubRegister 0x12
-prop_registerHalfLensGet1 = Register 0x1234 ^. registerHalfLens Back == SubRegister 0x34
-prop_registerHalfLensSet0 = (Register 0x1234 & (registerHalfLens Front .~ SubRegister 0x56)) == Register 0x5634
-prop_registerHalfLensSet1 = (Register 0x1234 & (registerHalfLens Back .~ SubRegister 0x56)) == Register 0x1256
-registerHalfLens :: RegisterHalf -> Lens' Register SubRegister 
-registerHalfLens rHalf = lens getter setter
+prop_registerHalfLensGet0 = Register 0x1234 ^. registerHalf Front == SubRegister 0x12
+prop_registerHalfLensGet1 = Register 0x1234 ^. registerHalf Back == SubRegister 0x34
+prop_registerHalfLensSet0 = (Register 0x1234 & (registerHalf Front .~ SubRegister 0x56)) == Register 0x5634
+prop_registerHalfLensSet1 = (Register 0x1234 & (registerHalf Back .~ SubRegister 0x56)) == Register 0x1256
+registerHalf :: RegisterHalf -> Lens' Register SubRegister 
+registerHalf rHalf = lens getter setter
     where
         getter = (^. (if rHalf == Front then _1 else _2)) . splitRegister
         setter r s = joinRegister $ splitRegister r & (if rHalf == Front then _1 else _2) .~ s

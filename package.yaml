@@ -27,6 +27,7 @@ dependencies:
 - bytestring
 - QuickCheck == 2.14.2
 - path
+- array
 - filepath
 - utf8-string
 - file-embed
