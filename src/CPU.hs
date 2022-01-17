@@ -2,7 +2,7 @@
 {-# LANGUAGE RankNTypes #-}
 module CPU where
 import Data.Bits (shiftL, shiftR, xor, (.&.), (.|.))
-import Data.Word (Word16, Word8)
+import Data.Word (Word32, Word16, Word8)
 import Data.Array (Array, array)
 import Lens.Micro
 import Lens.Micro.Platform ( makeLenses )
@@ -121,6 +121,15 @@ registerHalf rHalf = lens getter setter
     where
         getter = (^. (if rHalf == Front then _1 else _2)) . splitRegister
         setter r s = joinRegister $ splitRegister r & (if rHalf == Front then _1 else _2) .~ s
+
+add2 :: Word16 -> Word16 -> (Word16, Bool, Bool)
+add2 a b = (
+        fromIntegral result,
+        -- Not sure about this half carry logic, copied from https://github.com/taisel/GameBoy-Online/blob/47f9f638a8a9445aaa75050f634e437baa34aae0/js/GameBoyCore.js#L358
+        (a .&. 0xfff) > fromIntegral (result .&. 0xfff),
+        (result .&. 0xffff0000) > 0
+    )
+    where result = (fromIntegral a :: Word32) + (fromIntegral b :: Word32)
 
 
 return []

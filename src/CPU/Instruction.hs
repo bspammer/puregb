@@ -1,9 +1,10 @@
 {-# LANGUAGE TemplateHaskell #-}
 module CPU.Instruction where
 
+import Data.Bits (testBit, rotate)
 import Data.Map (fromList, Map)
 import Data.Word (Word8)
-import Lens.Micro.Platform ( (^.), set, ix, over, Lens' )
+import Lens.Micro.Platform ( (^.), (+~), set, ix, over, Lens' )
 import Test.QuickCheck.All (quickCheckAll)
 
 import CPU
@@ -16,7 +17,7 @@ type Instruction2 = Word8 -> Word8 -> RunnableInstruction
 stubInstruction :: String -> RunnableInstruction
 stubInstruction text = error $ "Instruction with no implementation: " ++ text
 
-setRegister r b1 b2 = set r (joinRegister (b1, b2))
+setRegister r arg1 arg2 = set r (joinRegister (arg1, arg2))
 
 setRamIndirect registerLens subRegisterLens cpu = set (ram . ix (cpu ^. registerLens)) (cpu ^. subRegisterLens) cpu
 
@@ -45,23 +46,36 @@ instruction_04 cpu = set zeroFlag (cpu ^. b == 255)
 
 -- 0x05 DEC B, 1 byte operand, 4 cycles Z,1,H,-
 instruction_05 :: RunnableInstruction
-instruction_05 = stubInstruction "0x05"
+instruction_05 cpu = set zeroFlag (cpu ^. b == 0)
+    $ set subtractionFlag True
+    $ set halfCarryFlag (cpu ^. b == 0)
+    $ over b (subtract 1) cpu
 
 -- 0x06 "LD B,d8", 2 byte operand, 8 cycles -,-,-,-
 instruction_06 :: Instruction1
-instruction_06 b = stubInstruction "0x06"
+instruction_06 = set b
 
 -- 0x07 RLCA, 1 byte operand, 4 cycles 0,0,0,C
 instruction_07 :: RunnableInstruction
-instruction_07 = stubInstruction "0x07"
+instruction_07 cpu = set zeroFlag False
+    $ set subtractionFlag False
+    $ set halfCarryFlag False
+    $ set carryFlag (testBit (cpu ^. accumulator) 7)
+    $ over accumulator (`rotate` 1) cpu
 
 -- 0x08 "LD (a16),SP", 3 byte operand, 20 cycles -,-,-,-
 instruction_08 :: Instruction2
-instruction_08 b1 b2 = stubInstruction "0x08"
+instruction_08 arg1 arg2 cpu = 
+    set (ram . ix (joinRegister (arg1, arg2))) (cpu ^. (sp . registerHalf Front)) 
+    $ set (ram . ix (joinRegister (arg1, arg2) + 1)) (cpu ^. (sp . registerHalf Back)) cpu
 
 -- 0x09 "ADD HL,BC", 1 byte operand, 8 cycles -,0,H,C
 instruction_09 :: RunnableInstruction
-instruction_09 = stubInstruction "0x09"
+instruction_09 cpu = set subtractionFlag False
+    $ set halfCarryFlag halfCarry
+    $ set carryFlag carry
+    $ set hl result cpu
+    where (result, halfCarry, carry) = add2 (cpu ^. hl) (cpu ^. bc)
 
 -- 0x0a "LD A,(BC)", 1 byte operand, 8 cycles -,-,-,-
 instruction_0a :: RunnableInstruction
@@ -81,7 +95,7 @@ instruction_0d = stubInstruction "0x0d"
 
 -- 0x0e "LD C,d8", 2 byte operand, 8 cycles -,-,-,-
 instruction_0e :: Instruction1
-instruction_0e b = stubInstruction "0x0e"
+instruction_0e arg = stubInstruction "0x0e"
 
 -- 0x0f RRCA, 1 byte operand, 4 cycles 0,0,0,C
 instruction_0f :: RunnableInstruction
@@ -89,7 +103,7 @@ instruction_0f = stubInstruction "0x0f"
 
 -- 0x10 STOP 0, 2 byte operand, 4 cycles -,-,-,-
 instruction_10 :: Instruction1
-instruction_10 b = stubInstruction "0x10"
+instruction_10 arg = stubInstruction "0x10"
 
 -- 0x11 "LD DE,d16", 3 byte operand, 12 cycles -,-,-,-
 instruction_11 :: Instruction2
@@ -113,7 +127,7 @@ instruction_15 = stubInstruction "0x15"
 
 -- 0x16 "LD D,d8", 2 byte operand, 8 cycles -,-,-,-
 instruction_16 :: Instruction1
-instruction_16 b = stubInstruction "0x16"
+instruction_16 arg = stubInstruction "0x16"
 
 -- 0x17 RLA, 1 byte operand, 4 cycles 0,0,0,C
 instruction_17 :: RunnableInstruction
@@ -121,7 +135,7 @@ instruction_17 = stubInstruction "0x17"
 
 -- 0x18 JR r8, 2 byte operand, 12 cycles -,-,-,-
 instruction_18 :: Instruction1
-instruction_18 b = stubInstruction "0x18"
+instruction_18 arg = stubInstruction "0x18"
 
 -- 0x19 "ADD HL,DE", 1 byte operand, 8 cycles -,0,H,C
 instruction_19 :: RunnableInstruction
@@ -145,7 +159,7 @@ instruction_1d = stubInstruction "0x1d"
 
 -- 0x1e "LD E,d8", 2 byte operand, 8 cycles -,-,-,-
 instruction_1e :: Instruction1
-instruction_1e b = stubInstruction "0x1e"
+instruction_1e arg = stubInstruction "0x1e"
 
 -- 0x1f RRA, 1 byte operand, 4 cycles 0,0,0,C
 instruction_1f :: RunnableInstruction
@@ -153,7 +167,7 @@ instruction_1f = stubInstruction "0x1f"
 
 -- 0x20 "JR NZ,r8", 2 byte operand, 12/8 cycles -,-,-,-
 instruction_20 :: Instruction1
-instruction_20 b = stubInstruction "0x20"
+instruction_20 arg = stubInstruction "0x20"
 
 -- 0x21 "LD HL,d16", 3 byte operand, 12 cycles -,-,-,-
 instruction_21 :: Instruction2
@@ -177,7 +191,7 @@ instruction_25 = stubInstruction "0x25"
 
 -- 0x26 "LD H,d8", 2 byte operand, 8 cycles -,-,-,-
 instruction_26 :: Instruction1
-instruction_26 b = stubInstruction "0x26"
+instruction_26 arg = stubInstruction "0x26"
 
 -- 0x27 DAA, 1 byte operand, 4 cycles Z,-,0,C
 instruction_27 :: RunnableInstruction
@@ -185,7 +199,7 @@ instruction_27 = stubInstruction "0x27"
 
 -- 0x28 "JR Z,r8", 2 byte operand, 12/8 cycles -,-,-,-
 instruction_28 :: Instruction1
-instruction_28 b = stubInstruction "0x28"
+instruction_28 arg = stubInstruction "0x28"
 
 -- 0x29 "ADD HL,HL", 1 byte operand, 8 cycles -,0,H,C
 instruction_29 :: RunnableInstruction
@@ -209,7 +223,7 @@ instruction_2d = stubInstruction "0x2d"
 
 -- 0x2e "LD L,d8", 2 byte operand, 8 cycles -,-,-,-
 instruction_2e :: Instruction1
-instruction_2e b = stubInstruction "0x2e"
+instruction_2e arg = stubInstruction "0x2e"
 
 -- 0x2f CPL, 1 byte operand, 4 cycles -,1,1,-
 instruction_2f :: RunnableInstruction
@@ -217,7 +231,7 @@ instruction_2f = stubInstruction "0x2f"
 
 -- 0x30 "JR NC,r8", 2 byte operand, 12/8 cycles -,-,-,-
 instruction_30 :: Instruction1
-instruction_30 b = stubInstruction "0x30"
+instruction_30 arg = stubInstruction "0x30"
 
 -- 0x31 "LD SP,d16", 3 byte operand, 12 cycles -,-,-,-
 instruction_31 :: Instruction2
@@ -241,7 +255,7 @@ instruction_35 = stubInstruction "0x35"
 
 -- 0x36 "LD (HL),d8", 2 byte operand, 12 cycles -,-,-,-
 instruction_36 :: Instruction1
-instruction_36 b = stubInstruction "0x36"
+instruction_36 arg = stubInstruction "0x36"
 
 -- 0x37 SCF, 1 byte operand, 4 cycles -,0,0,1
 instruction_37 :: RunnableInstruction
@@ -249,7 +263,7 @@ instruction_37 = stubInstruction "0x37"
 
 -- 0x38 "JR C,r8", 2 byte operand, 12/8 cycles -,-,-,-
 instruction_38 :: Instruction1
-instruction_38 b = stubInstruction "0x38"
+instruction_38 arg = stubInstruction "0x38"
 
 -- 0x39 "ADD HL,SP", 1 byte operand, 8 cycles -,0,H,C
 instruction_39 :: RunnableInstruction
@@ -273,7 +287,7 @@ instruction_3d = stubInstruction "0x3d"
 
 -- 0x3e "LD A,d8", 2 byte operand, 8 cycles -,-,-,-
 instruction_3e :: Instruction1
-instruction_3e b = stubInstruction "0x3e"
+instruction_3e arg = stubInstruction "0x3e"
 
 -- 0x3f CCF, 1 byte operand, 4 cycles -,0,0,C
 instruction_3f :: RunnableInstruction
@@ -801,15 +815,15 @@ instruction_c1 = stubInstruction "0xc1"
 
 -- 0xc2 "JP NZ,a16", 3 byte operand, 16/12 cycles -,-,-,-
 instruction_c2 :: Instruction2
-instruction_c2 b1 b2 = stubInstruction "0xc2"
+instruction_c2 arg1 arg2 = stubInstruction "0xc2"
 
 -- 0xc3 JP a16, 3 byte operand, 16 cycles -,-,-,-
 instruction_c3 :: Instruction2
-instruction_c3 b1 b2 = stubInstruction "0xc3"
+instruction_c3 arg1 arg2 = stubInstruction "0xc3"
 
 -- 0xc4 "CALL NZ,a16", 3 byte operand, 24/12 cycles -,-,-,-
 instruction_c4 :: Instruction2
-instruction_c4 b1 b2 = stubInstruction "0xc4"
+instruction_c4 arg1 arg2 = stubInstruction "0xc4"
 
 -- 0xc5 PUSH BC, 1 byte operand, 16 cycles -,-,-,-
 instruction_c5 :: RunnableInstruction
@@ -817,7 +831,7 @@ instruction_c5 = stubInstruction "0xc5"
 
 -- 0xc6 "ADD A,d8", 2 byte operand, 8 cycles Z,0,H,C
 instruction_c6 :: Instruction1
-instruction_c6 b = stubInstruction "0xc6"
+instruction_c6 arg = stubInstruction "0xc6"
 
 -- 0xc7 RST 00H, 1 byte operand, 16 cycles -,-,-,-
 instruction_c7 :: RunnableInstruction
@@ -833,7 +847,7 @@ instruction_c9 = stubInstruction "0xc9"
 
 -- 0xca "JP Z,a16", 3 byte operand, 16/12 cycles -,-,-,-
 instruction_ca :: Instruction2
-instruction_ca b1 b2 = stubInstruction "0xca"
+instruction_ca arg1 arg2 = stubInstruction "0xca"
 
 -- 0xcb PREFIX CB, 1 byte operand, 4 cycles -,-,-,-
 instruction_cb :: RunnableInstruction
@@ -841,15 +855,15 @@ instruction_cb = stubInstruction "0xcb"
 
 -- 0xcc "CALL Z,a16", 3 byte operand, 24/12 cycles -,-,-,-
 instruction_cc :: Instruction2
-instruction_cc b1 b2 = stubInstruction "0xcc"
+instruction_cc arg1 arg2 = stubInstruction "0xcc"
 
 -- 0xcd CALL a16, 3 byte operand, 24 cycles -,-,-,-
 instruction_cd :: Instruction2
-instruction_cd b1 b2 = stubInstruction "0xcd"
+instruction_cd arg1 arg2 = stubInstruction "0xcd"
 
 -- 0xce "ADC A,d8", 2 byte operand, 8 cycles Z,0,H,C
 instruction_ce :: Instruction1
-instruction_ce b = stubInstruction "0xce"
+instruction_ce arg = stubInstruction "0xce"
 
 -- 0xcf RST 08H, 1 byte operand, 16 cycles -,-,-,-
 instruction_cf :: RunnableInstruction
@@ -865,7 +879,7 @@ instruction_d1 = stubInstruction "0xd1"
 
 -- 0xd2 "JP NC,a16", 3 byte operand, 16/12 cycles -,-,-,-
 instruction_d2 :: Instruction2
-instruction_d2 b1 b2 = stubInstruction "0xd2"
+instruction_d2 arg1 arg2 = stubInstruction "0xd2"
 
 -- 0xd3 ,,,,,,
 instruction_d3 :: RunnableInstruction
@@ -873,7 +887,7 @@ instruction_d3 = stubInstruction "0xd3"
 
 -- 0xd4 "CALL NC,a16", 3 byte operand, 24/12 cycles -,-,-,-
 instruction_d4 :: Instruction2
-instruction_d4 b1 b2 = stubInstruction "0xd4"
+instruction_d4 arg1 arg2 = stubInstruction "0xd4"
 
 -- 0xd5 PUSH DE, 1 byte operand, 16 cycles -,-,-,-
 instruction_d5 :: RunnableInstruction
@@ -881,7 +895,7 @@ instruction_d5 = stubInstruction "0xd5"
 
 -- 0xd6 SUB d8, 2 byte operand, 8 cycles Z,1,H,C
 instruction_d6 :: Instruction1
-instruction_d6 b = stubInstruction "0xd6"
+instruction_d6 arg = stubInstruction "0xd6"
 
 -- 0xd7 RST 10H, 1 byte operand, 16 cycles -,-,-,-
 instruction_d7 :: RunnableInstruction
@@ -897,7 +911,7 @@ instruction_d9 = stubInstruction "0xd9"
 
 -- 0xda "JP C,a16", 3 byte operand, 16/12 cycles -,-,-,-
 instruction_da :: Instruction2
-instruction_da b1 b2 = stubInstruction "0xda"
+instruction_da arg1 arg2 = stubInstruction "0xda"
 
 -- 0xdb ,,,,,,
 instruction_db :: RunnableInstruction
@@ -905,7 +919,7 @@ instruction_db = stubInstruction "0xdb"
 
 -- 0xdc "CALL C,a16", 3 byte operand, 24/12 cycles -,-,-,-
 instruction_dc :: Instruction2
-instruction_dc b1 b2 = stubInstruction "0xdc"
+instruction_dc arg1 arg2 = stubInstruction "0xdc"
 
 -- 0xdd,,,,,,,
 instruction_dd :: RunnableInstruction
@@ -913,7 +927,7 @@ instruction_dd = stubInstruction "0xdd"
 
 -- 0xde "SBC A,d8", 2 byte operand, 8 cycles Z,1,H,C
 instruction_de :: Instruction1
-instruction_de b = stubInstruction "0xde"
+instruction_de arg = stubInstruction "0xde"
 
 -- 0xdf RST 18H, 1 byte operand, 16 cycles -,-,-,-
 instruction_df :: RunnableInstruction
@@ -921,15 +935,15 @@ instruction_df = stubInstruction "0xdf"
 
 -- 0xe0 "LDH (a8),A", 2 byte operand, 12 cycles -,-,-,-
 instruction_e0 :: Instruction1
-instruction_e0 b = stubInstruction "0xe0"
+instruction_e0 arg = stubInstruction "0xe0"
 
 -- 0xe1 POP HL, 1 byte operand, 12 cycles -,-,-,-
 instruction_e1 :: RunnableInstruction
 instruction_e1 = stubInstruction "0xe1"
 
--- 0xe2 "LD (C),A", 2 byte operand, 8 cycles -,-,-,-
-instruction_e2 :: Instruction1
-instruction_e2 b = stubInstruction "0xe2"
+-- 0xe2 "LD (C),A", 1 byte operand, 8 cycles -,-,-,-
+instruction_e2 :: RunnableInstruction
+instruction_e2 = stubInstruction "0xe2"
 
 -- 0xe3,,,,,,,
 instruction_e3 :: RunnableInstruction
@@ -945,7 +959,7 @@ instruction_e5 = stubInstruction "0xe5"
 
 -- 0xe6 AND d8, 2 byte operand, 8 cycles Z,0,1,0
 instruction_e6 :: Instruction1
-instruction_e6 b = stubInstruction "0xe6"
+instruction_e6 arg = stubInstruction "0xe6"
 
 -- 0xe7 RST 20H, 1 byte operand, 16 cycles -,-,-,-
 instruction_e7 :: RunnableInstruction
@@ -953,7 +967,7 @@ instruction_e7 = stubInstruction "0xe7"
 
 -- 0xe8 "ADD SP,r8", 2 byte operand, 16 cycles 0,0,H,C
 instruction_e8 :: Instruction1
-instruction_e8 b = stubInstruction "0xe8"
+instruction_e8 arg = stubInstruction "0xe8"
 
 -- 0xe9 JP (HL), 1 byte operand, 4 cycles -,-,-,-
 instruction_e9 :: RunnableInstruction
@@ -961,7 +975,7 @@ instruction_e9 = stubInstruction "0xe9"
 
 -- 0xea "LD (a16),A", 3 byte operand, 16 cycles -,-,-,-
 instruction_ea :: Instruction2
-instruction_ea b1 b2 = stubInstruction "0xea"
+instruction_ea arg1 arg2 = stubInstruction "0xea"
 
 -- 0xeb,,,,,,,
 instruction_eb :: RunnableInstruction
@@ -977,7 +991,7 @@ instruction_ed = stubInstruction "0xed"
 
 -- 0xee XOR d8, 2 byte operand, 8 cycles Z,0,0,0
 instruction_ee :: Instruction1
-instruction_ee b = stubInstruction "0xee"
+instruction_ee arg = stubInstruction "0xee"
 
 -- 0xef RST 28H, 1 byte operand, 16 cycles -,-,-,-
 instruction_ef :: RunnableInstruction
@@ -985,15 +999,15 @@ instruction_ef = stubInstruction "0xef"
 
 -- 0xf0 "LDH A,(a8)", 2 byte operand, 12 cycles -,-,-,-
 instruction_f0 :: Instruction1
-instruction_f0 b = stubInstruction "0xf0"
+instruction_f0 arg = stubInstruction "0xf0"
 
 -- 0xf1 POP AF, 1 byte operand, 12 cycles Z,N,H,C
 instruction_f1 :: RunnableInstruction
 instruction_f1 = stubInstruction "0xf1"
 
 -- 0xf2 "LD A,(C)", 2 byte operand, 8 cycles -,-,-,-
-instruction_f2 :: Instruction1
-instruction_f2 b = stubInstruction "0xf2"
+instruction_f2 :: RunnableInstruction
+instruction_f2 = stubInstruction "0xf2"
 
 -- 0xf3 DI, 1 byte operand, 4 cycles -,-,-,-
 instruction_f3 :: RunnableInstruction
@@ -1009,7 +1023,7 @@ instruction_f5 = stubInstruction "0xf5"
 
 -- 0xf6 OR d8, 2 byte operand, 8 cycles Z,0,0,0
 instruction_f6 :: Instruction1
-instruction_f6 b = stubInstruction "0xf6"
+instruction_f6 arg = stubInstruction "0xf6"
 
 -- 0xf7 RST 30H, 1 byte operand, 16 cycles -,-,-,-
 instruction_f7 :: RunnableInstruction
@@ -1017,7 +1031,7 @@ instruction_f7 = stubInstruction "0xf7"
 
 -- 0xf8 "LD HL,SP+r8", 2 byte operand, 12 cycles 0,0,H,C
 instruction_f8 :: Instruction1
-instruction_f8 b = stubInstruction "0xf8"
+instruction_f8 arg = stubInstruction "0xf8"
 
 -- 0xf9 "LD SP,HL", 1 byte operand, 8 cycles -,-,-,-
 instruction_f9 :: RunnableInstruction
@@ -1025,7 +1039,7 @@ instruction_f9 = stubInstruction "0xf9"
 
 -- 0xfa "LD A,(a16)", 3 byte operand, 16 cycles -,-,-,-
 instruction_fa :: Instruction2
-instruction_fa b1 b2 = stubInstruction "0xfa"
+instruction_fa arg1 arg2 = stubInstruction "0xfa"
 
 -- 0xfb EI, 1 byte operand, 4 cycles -,-,-,-
 instruction_fb :: RunnableInstruction
@@ -1041,7 +1055,7 @@ instruction_fd = stubInstruction "0xfd"
 
 -- 0xfe CP d8, 2 byte operand, 8 cycles Z,1,H,C
 instruction_fe :: Instruction1
-instruction_fe b = stubInstruction "0xfe"
+instruction_fe arg = stubInstruction "0xfe"
 
 -- 0xff RST 38H, 1 byte operand, 16 cycles -,-,-,-
 instruction_ff :: RunnableInstruction
@@ -1049,1027 +1063,1027 @@ instruction_ff = stubInstruction "0xff"
 
 -- 0xcb00 RLC B, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb00 :: Instruction1
-instruction_cb00 b = stubInstruction "0xcb00"
+instruction_cb00 arg = stubInstruction "0xcb00"
 
 -- 0xcb01 RLC C, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb01 :: Instruction1
-instruction_cb01 b = stubInstruction "0xcb01"
+instruction_cb01 arg = stubInstruction "0xcb01"
 
 -- 0xcb02 RLC D, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb02 :: Instruction1
-instruction_cb02 b = stubInstruction "0xcb02"
+instruction_cb02 arg = stubInstruction "0xcb02"
 
 -- 0xcb03 RLC E, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb03 :: Instruction1
-instruction_cb03 b = stubInstruction "0xcb03"
+instruction_cb03 arg = stubInstruction "0xcb03"
 
 -- 0xcb04 RLC H, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb04 :: Instruction1
-instruction_cb04 b = stubInstruction "0xcb04"
+instruction_cb04 arg = stubInstruction "0xcb04"
 
 -- 0xcb05 RLC L, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb05 :: Instruction1
-instruction_cb05 b = stubInstruction "0xcb05"
+instruction_cb05 arg = stubInstruction "0xcb05"
 
 -- 0xcb06 RLC (HL), 2 byte operand, 16 cycles Z,0,0,C
 instruction_cb06 :: Instruction1
-instruction_cb06 b = stubInstruction "0xcb06"
+instruction_cb06 arg = stubInstruction "0xcb06"
 
 -- 0xcb07 RLC A, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb07 :: Instruction1
-instruction_cb07 b = stubInstruction "0xcb07"
+instruction_cb07 arg = stubInstruction "0xcb07"
 
 -- 0xcb08 RRC B, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb08 :: Instruction1
-instruction_cb08 b = stubInstruction "0xcb08"
+instruction_cb08 arg = stubInstruction "0xcb08"
 
 -- 0xcb09 RRC C, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb09 :: Instruction1
-instruction_cb09 b = stubInstruction "0xcb09"
+instruction_cb09 arg = stubInstruction "0xcb09"
 
 -- 0xcb0a RRC D, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb0a :: Instruction1
-instruction_cb0a b = stubInstruction "0xcb0a"
+instruction_cb0a arg = stubInstruction "0xcb0a"
 
 -- 0xcb0b RRC E, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb0b :: Instruction1
-instruction_cb0b b = stubInstruction "0xcb0b"
+instruction_cb0b arg = stubInstruction "0xcb0b"
 
 -- 0xcb0c RRC H, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb0c :: Instruction1
-instruction_cb0c b = stubInstruction "0xcb0c"
+instruction_cb0c arg = stubInstruction "0xcb0c"
 
 -- 0xcb0d RRC L, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb0d :: Instruction1
-instruction_cb0d b = stubInstruction "0xcb0d"
+instruction_cb0d arg = stubInstruction "0xcb0d"
 
 -- 0xcb0e RRC (HL), 2 byte operand, 16 cycles Z,0,0,C
 instruction_cb0e :: Instruction1
-instruction_cb0e b = stubInstruction "0xcb0e"
+instruction_cb0e arg = stubInstruction "0xcb0e"
 
 -- 0xcb0f RRC A, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb0f :: Instruction1
-instruction_cb0f b = stubInstruction "0xcb0f"
+instruction_cb0f arg = stubInstruction "0xcb0f"
 
 -- 0xcb10 RL B, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb10 :: Instruction1
-instruction_cb10 b = stubInstruction "0xcb10"
+instruction_cb10 arg = stubInstruction "0xcb10"
 
 -- 0xcb11 RL C, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb11 :: Instruction1
-instruction_cb11 b = stubInstruction "0xcb11"
+instruction_cb11 arg = stubInstruction "0xcb11"
 
 -- 0xcb12 RL D, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb12 :: Instruction1
-instruction_cb12 b = stubInstruction "0xcb12"
+instruction_cb12 arg = stubInstruction "0xcb12"
 
 -- 0xcb13 RL E, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb13 :: Instruction1
-instruction_cb13 b = stubInstruction "0xcb13"
+instruction_cb13 arg = stubInstruction "0xcb13"
 
 -- 0xcb14 RL H, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb14 :: Instruction1
-instruction_cb14 b = stubInstruction "0xcb14"
+instruction_cb14 arg = stubInstruction "0xcb14"
 
 -- 0xcb15 RL L, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb15 :: Instruction1
-instruction_cb15 b = stubInstruction "0xcb15"
+instruction_cb15 arg = stubInstruction "0xcb15"
 
 -- 0xcb16 RL (HL), 2 byte operand, 16 cycles Z,0,0,C
 instruction_cb16 :: Instruction1
-instruction_cb16 b = stubInstruction "0xcb16"
+instruction_cb16 arg = stubInstruction "0xcb16"
 
 -- 0xcb17 RL A, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb17 :: Instruction1
-instruction_cb17 b = stubInstruction "0xcb17"
+instruction_cb17 arg = stubInstruction "0xcb17"
 
 -- 0xcb18 RR B, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb18 :: Instruction1
-instruction_cb18 b = stubInstruction "0xcb18"
+instruction_cb18 arg = stubInstruction "0xcb18"
 
 -- 0xcb19 RR C, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb19 :: Instruction1
-instruction_cb19 b = stubInstruction "0xcb19"
+instruction_cb19 arg = stubInstruction "0xcb19"
 
 -- 0xcb1a RR D, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb1a :: Instruction1
-instruction_cb1a b = stubInstruction "0xcb1a"
+instruction_cb1a arg = stubInstruction "0xcb1a"
 
 -- 0xcb1b RR E, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb1b :: Instruction1
-instruction_cb1b b = stubInstruction "0xcb1b"
+instruction_cb1b arg = stubInstruction "0xcb1b"
 
 -- 0xcb1c RR H, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb1c :: Instruction1
-instruction_cb1c b = stubInstruction "0xcb1c"
+instruction_cb1c arg = stubInstruction "0xcb1c"
 
 -- 0xcb1d RR L, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb1d :: Instruction1
-instruction_cb1d b = stubInstruction "0xcb1d"
+instruction_cb1d arg = stubInstruction "0xcb1d"
 
 -- 0xcb1e RR (HL), 2 byte operand, 16 cycles Z,0,0,C
 instruction_cb1e :: Instruction1
-instruction_cb1e b = stubInstruction "0xcb1e"
+instruction_cb1e arg = stubInstruction "0xcb1e"
 
 -- 0xcb1f RR A, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb1f :: Instruction1
-instruction_cb1f b = stubInstruction "0xcb1f"
+instruction_cb1f arg = stubInstruction "0xcb1f"
 
 -- 0xcb20 SLA B, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb20 :: Instruction1
-instruction_cb20 b = stubInstruction "0xcb20"
+instruction_cb20 arg = stubInstruction "0xcb20"
 
 -- 0xcb21 SLA C, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb21 :: Instruction1
-instruction_cb21 b = stubInstruction "0xcb21"
+instruction_cb21 arg = stubInstruction "0xcb21"
 
 -- 0xcb22 SLA D, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb22 :: Instruction1
-instruction_cb22 b = stubInstruction "0xcb22"
+instruction_cb22 arg = stubInstruction "0xcb22"
 
 -- 0xcb23 SLA E, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb23 :: Instruction1
-instruction_cb23 b = stubInstruction "0xcb23"
+instruction_cb23 arg = stubInstruction "0xcb23"
 
 -- 0xcb24 SLA H, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb24 :: Instruction1
-instruction_cb24 b = stubInstruction "0xcb24"
+instruction_cb24 arg = stubInstruction "0xcb24"
 
 -- 0xcb25 SLA L, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb25 :: Instruction1
-instruction_cb25 b = stubInstruction "0xcb25"
+instruction_cb25 arg = stubInstruction "0xcb25"
 
 -- 0xcb26 SLA (HL), 2 byte operand, 16 cycles Z,0,0,C
 instruction_cb26 :: Instruction1
-instruction_cb26 b = stubInstruction "0xcb26"
+instruction_cb26 arg = stubInstruction "0xcb26"
 
 -- 0xcb27 SLA A, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb27 :: Instruction1
-instruction_cb27 b = stubInstruction "0xcb27"
+instruction_cb27 arg = stubInstruction "0xcb27"
 
 -- 0xcb28 SRA B, 2 byte operand, 8 cycles Z,0,0,0
 instruction_cb28 :: Instruction1
-instruction_cb28 b = stubInstruction "0xcb28"
+instruction_cb28 arg = stubInstruction "0xcb28"
 
 -- 0xcb29 SRA C, 2 byte operand, 8 cycles Z,0,0,0
 instruction_cb29 :: Instruction1
-instruction_cb29 b = stubInstruction "0xcb29"
+instruction_cb29 arg = stubInstruction "0xcb29"
 
 -- 0xcb2a SRA D, 2 byte operand, 8 cycles Z,0,0,0
 instruction_cb2a :: Instruction1
-instruction_cb2a b = stubInstruction "0xcb2a"
+instruction_cb2a arg = stubInstruction "0xcb2a"
 
 -- 0xcb2b SRA E, 2 byte operand, 8 cycles Z,0,0,0
 instruction_cb2b :: Instruction1
-instruction_cb2b b = stubInstruction "0xcb2b"
+instruction_cb2b arg = stubInstruction "0xcb2b"
 
 -- 0xcb2c SRA H, 2 byte operand, 8 cycles Z,0,0,0
 instruction_cb2c :: Instruction1
-instruction_cb2c b = stubInstruction "0xcb2c"
+instruction_cb2c arg = stubInstruction "0xcb2c"
 
 -- 0xcb2d SRA L, 2 byte operand, 8 cycles Z,0,0,0
 instruction_cb2d :: Instruction1
-instruction_cb2d b = stubInstruction "0xcb2d"
+instruction_cb2d arg = stubInstruction "0xcb2d"
 
 -- 0xcb2e SRA (HL), 2 byte operand, 16 cycles Z,0,0,0
 instruction_cb2e :: Instruction1
-instruction_cb2e b = stubInstruction "0xcb2e"
+instruction_cb2e arg = stubInstruction "0xcb2e"
 
 -- 0xcb2f SRA A, 2 byte operand, 8 cycles Z,0,0,0
 instruction_cb2f :: Instruction1
-instruction_cb2f b = stubInstruction "0xcb2f"
+instruction_cb2f arg = stubInstruction "0xcb2f"
 
 -- 0xcb30 SWAP B, 2 byte operand, 8 cycles Z,0,0,0
 instruction_cb30 :: Instruction1
-instruction_cb30 b = stubInstruction "0xcb30"
+instruction_cb30 arg = stubInstruction "0xcb30"
 
 -- 0xcb31 SWAP C, 2 byte operand, 8 cycles Z,0,0,0
 instruction_cb31 :: Instruction1
-instruction_cb31 b = stubInstruction "0xcb31"
+instruction_cb31 arg = stubInstruction "0xcb31"
 
 -- 0xcb32 SWAP D, 2 byte operand, 8 cycles Z,0,0,0
 instruction_cb32 :: Instruction1
-instruction_cb32 b = stubInstruction "0xcb32"
+instruction_cb32 arg = stubInstruction "0xcb32"
 
 -- 0xcb33 SWAP E, 2 byte operand, 8 cycles Z,0,0,0
 instruction_cb33 :: Instruction1
-instruction_cb33 b = stubInstruction "0xcb33"
+instruction_cb33 arg = stubInstruction "0xcb33"
 
 -- 0xcb34 SWAP H, 2 byte operand, 8 cycles Z,0,0,0
 instruction_cb34 :: Instruction1
-instruction_cb34 b = stubInstruction "0xcb34"
+instruction_cb34 arg = stubInstruction "0xcb34"
 
 -- 0xcb35 SWAP L, 2 byte operand, 8 cycles Z,0,0,0
 instruction_cb35 :: Instruction1
-instruction_cb35 b = stubInstruction "0xcb35"
+instruction_cb35 arg = stubInstruction "0xcb35"
 
 -- 0xcb36 SWAP (HL), 2 byte operand, 16 cycles Z,0,0,0
 instruction_cb36 :: Instruction1
-instruction_cb36 b = stubInstruction "0xcb36"
+instruction_cb36 arg = stubInstruction "0xcb36"
 
 -- 0xcb37 SWAP A, 2 byte operand, 8 cycles Z,0,0,0
 instruction_cb37 :: Instruction1
-instruction_cb37 b = stubInstruction "0xcb37"
+instruction_cb37 arg = stubInstruction "0xcb37"
 
 -- 0xcb38 SRL B, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb38 :: Instruction1
-instruction_cb38 b = stubInstruction "0xcb38"
+instruction_cb38 arg = stubInstruction "0xcb38"
 
 -- 0xcb39 SRL C, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb39 :: Instruction1
-instruction_cb39 b = stubInstruction "0xcb39"
+instruction_cb39 arg = stubInstruction "0xcb39"
 
 -- 0xcb3a SRL D, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb3a :: Instruction1
-instruction_cb3a b = stubInstruction "0xcb3a"
+instruction_cb3a arg = stubInstruction "0xcb3a"
 
 -- 0xcb3b SRL E, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb3b :: Instruction1
-instruction_cb3b b = stubInstruction "0xcb3b"
+instruction_cb3b arg = stubInstruction "0xcb3b"
 
 -- 0xcb3c SRL H, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb3c :: Instruction1
-instruction_cb3c b = stubInstruction "0xcb3c"
+instruction_cb3c arg = stubInstruction "0xcb3c"
 
 -- 0xcb3d SRL L, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb3d :: Instruction1
-instruction_cb3d b = stubInstruction "0xcb3d"
+instruction_cb3d arg = stubInstruction "0xcb3d"
 
 -- 0xcb3e SRL (HL), 2 byte operand, 16 cycles Z,0,0,C
 instruction_cb3e :: Instruction1
-instruction_cb3e b = stubInstruction "0xcb3e"
+instruction_cb3e arg = stubInstruction "0xcb3e"
 
 -- 0xcb3f SRL A, 2 byte operand, 8 cycles Z,0,0,C
 instruction_cb3f :: Instruction1
-instruction_cb3f b = stubInstruction "0xcb3f"
+instruction_cb3f arg = stubInstruction "0xcb3f"
 
 -- 0xcb40 "BIT 0,B", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb40 :: Instruction1
-instruction_cb40 b = stubInstruction "0xcb40"
+instruction_cb40 arg = stubInstruction "0xcb40"
 
 -- 0xcb41 "BIT 0,C", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb41 :: Instruction1
-instruction_cb41 b = stubInstruction "0xcb41"
+instruction_cb41 arg = stubInstruction "0xcb41"
 
 -- 0xcb42 "BIT 0,D", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb42 :: Instruction1
-instruction_cb42 b = stubInstruction "0xcb42"
+instruction_cb42 arg = stubInstruction "0xcb42"
 
 -- 0xcb43 "BIT 0,E", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb43 :: Instruction1
-instruction_cb43 b = stubInstruction "0xcb43"
+instruction_cb43 arg = stubInstruction "0xcb43"
 
 -- 0xcb44 "BIT 0,H", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb44 :: Instruction1
-instruction_cb44 b = stubInstruction "0xcb44"
+instruction_cb44 arg = stubInstruction "0xcb44"
 
 -- 0xcb45 "BIT 0,L", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb45 :: Instruction1
-instruction_cb45 b = stubInstruction "0xcb45"
+instruction_cb45 arg = stubInstruction "0xcb45"
 
 -- 0xcb46 "BIT 0,(HL)", 2 byte operand, 16 cycles Z,0,1,-
 instruction_cb46 :: Instruction1
-instruction_cb46 b = stubInstruction "0xcb46"
+instruction_cb46 arg = stubInstruction "0xcb46"
 
 -- 0xcb47 "BIT 0,A", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb47 :: Instruction1
-instruction_cb47 b = stubInstruction "0xcb47"
+instruction_cb47 arg = stubInstruction "0xcb47"
 
 -- 0xcb48 "BIT 1,B", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb48 :: Instruction1
-instruction_cb48 b = stubInstruction "0xcb48"
+instruction_cb48 arg = stubInstruction "0xcb48"
 
 -- 0xcb49 "BIT 1,C", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb49 :: Instruction1
-instruction_cb49 b = stubInstruction "0xcb49"
+instruction_cb49 arg = stubInstruction "0xcb49"
 
 -- 0xcb4a "BIT 1,D", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb4a :: Instruction1
-instruction_cb4a b = stubInstruction "0xcb4a"
+instruction_cb4a arg = stubInstruction "0xcb4a"
 
 -- 0xcb4b "BIT 1,E", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb4b :: Instruction1
-instruction_cb4b b = stubInstruction "0xcb4b"
+instruction_cb4b arg = stubInstruction "0xcb4b"
 
 -- 0xcb4c "BIT 1,H", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb4c :: Instruction1
-instruction_cb4c b = stubInstruction "0xcb4c"
+instruction_cb4c arg = stubInstruction "0xcb4c"
 
 -- 0xcb4d "BIT 1,L", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb4d :: Instruction1
-instruction_cb4d b = stubInstruction "0xcb4d"
+instruction_cb4d arg = stubInstruction "0xcb4d"
 
 -- 0xcb4e "BIT 1,(HL)", 2 byte operand, 16 cycles Z,0,1,-
 instruction_cb4e :: Instruction1
-instruction_cb4e b = stubInstruction "0xcb4e"
+instruction_cb4e arg = stubInstruction "0xcb4e"
 
 -- 0xcb4f "BIT 1,A", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb4f :: Instruction1
-instruction_cb4f b = stubInstruction "0xcb4f"
+instruction_cb4f arg = stubInstruction "0xcb4f"
 
 -- 0xcb50 "BIT 2,B", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb50 :: Instruction1
-instruction_cb50 b = stubInstruction "0xcb50"
+instruction_cb50 arg = stubInstruction "0xcb50"
 
 -- 0xcb51 "BIT 2,C", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb51 :: Instruction1
-instruction_cb51 b = stubInstruction "0xcb51"
+instruction_cb51 arg = stubInstruction "0xcb51"
 
 -- 0xcb52 "BIT 2,D", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb52 :: Instruction1
-instruction_cb52 b = stubInstruction "0xcb52"
+instruction_cb52 arg = stubInstruction "0xcb52"
 
 -- 0xcb53 "BIT 2,E", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb53 :: Instruction1
-instruction_cb53 b = stubInstruction "0xcb53"
+instruction_cb53 arg = stubInstruction "0xcb53"
 
 -- 0xcb54 "BIT 2,H", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb54 :: Instruction1
-instruction_cb54 b = stubInstruction "0xcb54"
+instruction_cb54 arg = stubInstruction "0xcb54"
 
 -- 0xcb55 "BIT 2,L", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb55 :: Instruction1
-instruction_cb55 b = stubInstruction "0xcb55"
+instruction_cb55 arg = stubInstruction "0xcb55"
 
 -- 0xcb56 "BIT 2,(HL)", 2 byte operand, 16 cycles Z,0,1,-
 instruction_cb56 :: Instruction1
-instruction_cb56 b = stubInstruction "0xcb56"
+instruction_cb56 arg = stubInstruction "0xcb56"
 
 -- 0xcb57 "BIT 2,A", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb57 :: Instruction1
-instruction_cb57 b = stubInstruction "0xcb57"
+instruction_cb57 arg = stubInstruction "0xcb57"
 
 -- 0xcb58 "BIT 3,B", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb58 :: Instruction1
-instruction_cb58 b = stubInstruction "0xcb58"
+instruction_cb58 arg = stubInstruction "0xcb58"
 
 -- 0xcb59 "BIT 3,C", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb59 :: Instruction1
-instruction_cb59 b = stubInstruction "0xcb59"
+instruction_cb59 arg = stubInstruction "0xcb59"
 
 -- 0xcb5a "BIT 3,D", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb5a :: Instruction1
-instruction_cb5a b = stubInstruction "0xcb5a"
+instruction_cb5a arg = stubInstruction "0xcb5a"
 
 -- 0xcb5b "BIT 3,E", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb5b :: Instruction1
-instruction_cb5b b = stubInstruction "0xcb5b"
+instruction_cb5b arg = stubInstruction "0xcb5b"
 
 -- 0xcb5c "BIT 3,H", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb5c :: Instruction1
-instruction_cb5c b = stubInstruction "0xcb5c"
+instruction_cb5c arg = stubInstruction "0xcb5c"
 
 -- 0xcb5d "BIT 3,L", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb5d :: Instruction1
-instruction_cb5d b = stubInstruction "0xcb5d"
+instruction_cb5d arg = stubInstruction "0xcb5d"
 
 -- 0xcb5e "BIT 3,(HL)", 2 byte operand, 16 cycles Z,0,1,-
 instruction_cb5e :: Instruction1
-instruction_cb5e b = stubInstruction "0xcb5e"
+instruction_cb5e arg = stubInstruction "0xcb5e"
 
 -- 0xcb5f "BIT 3,A", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb5f :: Instruction1
-instruction_cb5f b = stubInstruction "0xcb5f"
+instruction_cb5f arg = stubInstruction "0xcb5f"
 
 -- 0xcb60 "BIT 4,B", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb60 :: Instruction1
-instruction_cb60 b = stubInstruction "0xcb60"
+instruction_cb60 arg = stubInstruction "0xcb60"
 
 -- 0xcb61 "BIT 4,C", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb61 :: Instruction1
-instruction_cb61 b = stubInstruction "0xcb61"
+instruction_cb61 arg = stubInstruction "0xcb61"
 
 -- 0xcb62 "BIT 4,D", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb62 :: Instruction1
-instruction_cb62 b = stubInstruction "0xcb62"
+instruction_cb62 arg = stubInstruction "0xcb62"
 
 -- 0xcb63 "BIT 4,E", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb63 :: Instruction1
-instruction_cb63 b = stubInstruction "0xcb63"
+instruction_cb63 arg = stubInstruction "0xcb63"
 
 -- 0xcb64 "BIT 4,H", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb64 :: Instruction1
-instruction_cb64 b = stubInstruction "0xcb64"
+instruction_cb64 arg = stubInstruction "0xcb64"
 
 -- 0xcb65 "BIT 4,L", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb65 :: Instruction1
-instruction_cb65 b = stubInstruction "0xcb65"
+instruction_cb65 arg = stubInstruction "0xcb65"
 
 -- 0xcb66 "BIT 4,(HL)", 2 byte operand, 16 cycles Z,0,1,-
 instruction_cb66 :: Instruction1
-instruction_cb66 b = stubInstruction "0xcb66"
+instruction_cb66 arg = stubInstruction "0xcb66"
 
 -- 0xcb67 "BIT 4,A", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb67 :: Instruction1
-instruction_cb67 b = stubInstruction "0xcb67"
+instruction_cb67 arg = stubInstruction "0xcb67"
 
 -- 0xcb68 "BIT 5,B", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb68 :: Instruction1
-instruction_cb68 b = stubInstruction "0xcb68"
+instruction_cb68 arg = stubInstruction "0xcb68"
 
 -- 0xcb69 "BIT 5,C", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb69 :: Instruction1
-instruction_cb69 b = stubInstruction "0xcb69"
+instruction_cb69 arg = stubInstruction "0xcb69"
 
 -- 0xcb6a "BIT 5,D", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb6a :: Instruction1
-instruction_cb6a b = stubInstruction "0xcb6a"
+instruction_cb6a arg = stubInstruction "0xcb6a"
 
 -- 0xcb6b "BIT 5,E", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb6b :: Instruction1
-instruction_cb6b b = stubInstruction "0xcb6b"
+instruction_cb6b arg = stubInstruction "0xcb6b"
 
 -- 0xcb6c "BIT 5,H", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb6c :: Instruction1
-instruction_cb6c b = stubInstruction "0xcb6c"
+instruction_cb6c arg = stubInstruction "0xcb6c"
 
 -- 0xcb6d "BIT 5,L", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb6d :: Instruction1
-instruction_cb6d b = stubInstruction "0xcb6d"
+instruction_cb6d arg = stubInstruction "0xcb6d"
 
 -- 0xcb6e "BIT 5,(HL)", 2 byte operand, 16 cycles Z,0,1,-
 instruction_cb6e :: Instruction1
-instruction_cb6e b = stubInstruction "0xcb6e"
+instruction_cb6e arg = stubInstruction "0xcb6e"
 
 -- 0xcb6f "BIT 5,A", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb6f :: Instruction1
-instruction_cb6f b = stubInstruction "0xcb6f"
+instruction_cb6f arg = stubInstruction "0xcb6f"
 
 -- 0xcb70 "BIT 6,B", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb70 :: Instruction1
-instruction_cb70 b = stubInstruction "0xcb70"
+instruction_cb70 arg = stubInstruction "0xcb70"
 
 -- 0xcb71 "BIT 6,C", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb71 :: Instruction1
-instruction_cb71 b = stubInstruction "0xcb71"
+instruction_cb71 arg = stubInstruction "0xcb71"
 
 -- 0xcb72 "BIT 6,D", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb72 :: Instruction1
-instruction_cb72 b = stubInstruction "0xcb72"
+instruction_cb72 arg = stubInstruction "0xcb72"
 
 -- 0xcb73 "BIT 6,E", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb73 :: Instruction1
-instruction_cb73 b = stubInstruction "0xcb73"
+instruction_cb73 arg = stubInstruction "0xcb73"
 
 -- 0xcb74 "BIT 6,H", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb74 :: Instruction1
-instruction_cb74 b = stubInstruction "0xcb74"
+instruction_cb74 arg = stubInstruction "0xcb74"
 
 -- 0xcb75 "BIT 6,L", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb75 :: Instruction1
-instruction_cb75 b = stubInstruction "0xcb75"
+instruction_cb75 arg = stubInstruction "0xcb75"
 
 -- 0xcb76 "BIT 6,(HL)", 2 byte operand, 16 cycles Z,0,1,-
 instruction_cb76 :: Instruction1
-instruction_cb76 b = stubInstruction "0xcb76"
+instruction_cb76 arg = stubInstruction "0xcb76"
 
 -- 0xcb77 "BIT 6,A", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb77 :: Instruction1
-instruction_cb77 b = stubInstruction "0xcb77"
+instruction_cb77 arg = stubInstruction "0xcb77"
 
 -- 0xcb78 "BIT 7,B", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb78 :: Instruction1
-instruction_cb78 b = stubInstruction "0xcb78"
+instruction_cb78 arg = stubInstruction "0xcb78"
 
 -- 0xcb79 "BIT 7,C", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb79 :: Instruction1
-instruction_cb79 b = stubInstruction "0xcb79"
+instruction_cb79 arg = stubInstruction "0xcb79"
 
 -- 0xcb7a "BIT 7,D", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb7a :: Instruction1
-instruction_cb7a b = stubInstruction "0xcb7a"
+instruction_cb7a arg = stubInstruction "0xcb7a"
 
 -- 0xcb7b "BIT 7,E", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb7b :: Instruction1
-instruction_cb7b b = stubInstruction "0xcb7b"
+instruction_cb7b arg = stubInstruction "0xcb7b"
 
 -- 0xcb7c "BIT 7,H", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb7c :: Instruction1
-instruction_cb7c b = stubInstruction "0xcb7c"
+instruction_cb7c arg = stubInstruction "0xcb7c"
 
 -- 0xcb7d "BIT 7,L", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb7d :: Instruction1
-instruction_cb7d b = stubInstruction "0xcb7d"
+instruction_cb7d arg = stubInstruction "0xcb7d"
 
 -- 0xcb7e "BIT 7,(HL)", 2 byte operand, 16 cycles Z,0,1,-
 instruction_cb7e :: Instruction1
-instruction_cb7e b = stubInstruction "0xcb7e"
+instruction_cb7e arg = stubInstruction "0xcb7e"
 
 -- 0xcb7f "BIT 7,A", 2 byte operand, 8 cycles Z,0,1,-
 instruction_cb7f :: Instruction1
-instruction_cb7f b = stubInstruction "0xcb7f"
+instruction_cb7f arg = stubInstruction "0xcb7f"
 
 -- 0xcb80 "RES 0,B", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb80 :: Instruction1
-instruction_cb80 b = stubInstruction "0xcb80"
+instruction_cb80 arg = stubInstruction "0xcb80"
 
 -- 0xcb81 "RES 0,C", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb81 :: Instruction1
-instruction_cb81 b = stubInstruction "0xcb81"
+instruction_cb81 arg = stubInstruction "0xcb81"
 
 -- 0xcb82 "RES 0,D", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb82 :: Instruction1
-instruction_cb82 b = stubInstruction "0xcb82"
+instruction_cb82 arg = stubInstruction "0xcb82"
 
 -- 0xcb83 "RES 0,E", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb83 :: Instruction1
-instruction_cb83 b = stubInstruction "0xcb83"
+instruction_cb83 arg = stubInstruction "0xcb83"
 
 -- 0xcb84 "RES 0,H", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb84 :: Instruction1
-instruction_cb84 b = stubInstruction "0xcb84"
+instruction_cb84 arg = stubInstruction "0xcb84"
 
 -- 0xcb85 "RES 0,L", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb85 :: Instruction1
-instruction_cb85 b = stubInstruction "0xcb85"
+instruction_cb85 arg = stubInstruction "0xcb85"
 
 -- 0xcb86 "RES 0,(HL)", 2 byte operand, 16 cycles -,-,-,-
 instruction_cb86 :: Instruction1
-instruction_cb86 b = stubInstruction "0xcb86"
+instruction_cb86 arg = stubInstruction "0xcb86"
 
 -- 0xcb87 "RES 0,A", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb87 :: Instruction1
-instruction_cb87 b = stubInstruction "0xcb87"
+instruction_cb87 arg = stubInstruction "0xcb87"
 
 -- 0xcb88 "RES 1,B", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb88 :: Instruction1
-instruction_cb88 b = stubInstruction "0xcb88"
+instruction_cb88 arg = stubInstruction "0xcb88"
 
 -- 0xcb89 "RES 1,C", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb89 :: Instruction1
-instruction_cb89 b = stubInstruction "0xcb89"
+instruction_cb89 arg = stubInstruction "0xcb89"
 
 -- 0xcb8a "RES 1,D", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb8a :: Instruction1
-instruction_cb8a b = stubInstruction "0xcb8a"
+instruction_cb8a arg = stubInstruction "0xcb8a"
 
 -- 0xcb8b "RES 1,E", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb8b :: Instruction1
-instruction_cb8b b = stubInstruction "0xcb8b"
+instruction_cb8b arg = stubInstruction "0xcb8b"
 
 -- 0xcb8c "RES 1,H", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb8c :: Instruction1
-instruction_cb8c b = stubInstruction "0xcb8c"
+instruction_cb8c arg = stubInstruction "0xcb8c"
 
 -- 0xcb8d "RES 1,L", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb8d :: Instruction1
-instruction_cb8d b = stubInstruction "0xcb8d"
+instruction_cb8d arg = stubInstruction "0xcb8d"
 
 -- 0xcb8e "RES 1,(HL)", 2 byte operand, 16 cycles -,-,-,-
 instruction_cb8e :: Instruction1
-instruction_cb8e b = stubInstruction "0xcb8e"
+instruction_cb8e arg = stubInstruction "0xcb8e"
 
 -- 0xcb8f "RES 1,A", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb8f :: Instruction1
-instruction_cb8f b = stubInstruction "0xcb8f"
+instruction_cb8f arg = stubInstruction "0xcb8f"
 
 -- 0xcb90 "RES 2,B", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb90 :: Instruction1
-instruction_cb90 b = stubInstruction "0xcb90"
+instruction_cb90 arg = stubInstruction "0xcb90"
 
 -- 0xcb91 "RES 2,C", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb91 :: Instruction1
-instruction_cb91 b = stubInstruction "0xcb91"
+instruction_cb91 arg = stubInstruction "0xcb91"
 
 -- 0xcb92 "RES 2,D", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb92 :: Instruction1
-instruction_cb92 b = stubInstruction "0xcb92"
+instruction_cb92 arg = stubInstruction "0xcb92"
 
 -- 0xcb93 "RES 2,E", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb93 :: Instruction1
-instruction_cb93 b = stubInstruction "0xcb93"
+instruction_cb93 arg = stubInstruction "0xcb93"
 
 -- 0xcb94 "RES 2,H", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb94 :: Instruction1
-instruction_cb94 b = stubInstruction "0xcb94"
+instruction_cb94 arg = stubInstruction "0xcb94"
 
 -- 0xcb95 "RES 2,L", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb95 :: Instruction1
-instruction_cb95 b = stubInstruction "0xcb95"
+instruction_cb95 arg = stubInstruction "0xcb95"
 
 -- 0xcb96 "RES 2,(HL)", 2 byte operand, 16 cycles -,-,-,-
 instruction_cb96 :: Instruction1
-instruction_cb96 b = stubInstruction "0xcb96"
+instruction_cb96 arg = stubInstruction "0xcb96"
 
 -- 0xcb97 "RES 2,A", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb97 :: Instruction1
-instruction_cb97 b = stubInstruction "0xcb97"
+instruction_cb97 arg = stubInstruction "0xcb97"
 
 -- 0xcb98 "RES 3,B", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb98 :: Instruction1
-instruction_cb98 b = stubInstruction "0xcb98"
+instruction_cb98 arg = stubInstruction "0xcb98"
 
 -- 0xcb99 "RES 3,C", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb99 :: Instruction1
-instruction_cb99 b = stubInstruction "0xcb99"
+instruction_cb99 arg = stubInstruction "0xcb99"
 
 -- 0xcb9a "RES 3,D", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb9a :: Instruction1
-instruction_cb9a b = stubInstruction "0xcb9a"
+instruction_cb9a arg = stubInstruction "0xcb9a"
 
 -- 0xcb9b "RES 3,E", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb9b :: Instruction1
-instruction_cb9b b = stubInstruction "0xcb9b"
+instruction_cb9b arg = stubInstruction "0xcb9b"
 
 -- 0xcb9c "RES 3,H", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb9c :: Instruction1
-instruction_cb9c b = stubInstruction "0xcb9c"
+instruction_cb9c arg = stubInstruction "0xcb9c"
 
 -- 0xcb9d "RES 3,L", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb9d :: Instruction1
-instruction_cb9d b = stubInstruction "0xcb9d"
+instruction_cb9d arg = stubInstruction "0xcb9d"
 
 -- 0xcb9e "RES 3,(HL)", 2 byte operand, 16 cycles -,-,-,-
 instruction_cb9e :: Instruction1
-instruction_cb9e b = stubInstruction "0xcb9e"
+instruction_cb9e arg = stubInstruction "0xcb9e"
 
 -- 0xcb9f "RES 3,A", 2 byte operand, 8 cycles -,-,-,-
 instruction_cb9f :: Instruction1
-instruction_cb9f b = stubInstruction "0xcb9f"
+instruction_cb9f arg = stubInstruction "0xcb9f"
 
 -- 0xcba0 "RES 4,B", 2 byte operand, 8 cycles -,-,-,-
 instruction_cba0 :: Instruction1
-instruction_cba0 b = stubInstruction "0xcba0"
+instruction_cba0 arg = stubInstruction "0xcba0"
 
 -- 0xcba1 "RES 4,C", 2 byte operand, 8 cycles -,-,-,-
 instruction_cba1 :: Instruction1
-instruction_cba1 b = stubInstruction "0xcba1"
+instruction_cba1 arg = stubInstruction "0xcba1"
 
 -- 0xcba2 "RES 4,D", 2 byte operand, 8 cycles -,-,-,-
 instruction_cba2 :: Instruction1
-instruction_cba2 b = stubInstruction "0xcba2"
+instruction_cba2 arg = stubInstruction "0xcba2"
 
 -- 0xcba3 "RES 4,E", 2 byte operand, 8 cycles -,-,-,-
 instruction_cba3 :: Instruction1
-instruction_cba3 b = stubInstruction "0xcba3"
+instruction_cba3 arg = stubInstruction "0xcba3"
 
 -- 0xcba4 "RES 4,H", 2 byte operand, 8 cycles -,-,-,-
 instruction_cba4 :: Instruction1
-instruction_cba4 b = stubInstruction "0xcba4"
+instruction_cba4 arg = stubInstruction "0xcba4"
 
 -- 0xcba5 "RES 4,L", 2 byte operand, 8 cycles -,-,-,-
 instruction_cba5 :: Instruction1
-instruction_cba5 b = stubInstruction "0xcba5"
+instruction_cba5 arg = stubInstruction "0xcba5"
 
 -- 0xcba6 "RES 4,(HL)", 2 byte operand, 16 cycles -,-,-,-
 instruction_cba6 :: Instruction1
-instruction_cba6 b = stubInstruction "0xcba6"
+instruction_cba6 arg = stubInstruction "0xcba6"
 
 -- 0xcba7 "RES 4,A", 2 byte operand, 8 cycles -,-,-,-
 instruction_cba7 :: Instruction1
-instruction_cba7 b = stubInstruction "0xcba7"
+instruction_cba7 arg = stubInstruction "0xcba7"
 
 -- 0xcba8 "RES 5,B", 2 byte operand, 8 cycles -,-,-,-
 instruction_cba8 :: Instruction1
-instruction_cba8 b = stubInstruction "0xcba8"
+instruction_cba8 arg = stubInstruction "0xcba8"
 
 -- 0xcba9 "RES 5,C", 2 byte operand, 8 cycles -,-,-,-
 instruction_cba9 :: Instruction1
-instruction_cba9 b = stubInstruction "0xcba9"
+instruction_cba9 arg = stubInstruction "0xcba9"
 
 -- 0xcbaa "RES 5,D", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbaa :: Instruction1
-instruction_cbaa b = stubInstruction "0xcbaa"
+instruction_cbaa arg = stubInstruction "0xcbaa"
 
 -- 0xcbab "RES 5,E", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbab :: Instruction1
-instruction_cbab b = stubInstruction "0xcbab"
+instruction_cbab arg = stubInstruction "0xcbab"
 
 -- 0xcbac "RES 5,H", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbac :: Instruction1
-instruction_cbac b = stubInstruction "0xcbac"
+instruction_cbac arg = stubInstruction "0xcbac"
 
 -- 0xcbad "RES 5,L", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbad :: Instruction1
-instruction_cbad b = stubInstruction "0xcbad"
+instruction_cbad arg = stubInstruction "0xcbad"
 
 -- 0xcbae "RES 5,(HL)", 2 byte operand, 16 cycles -,-,-,-
 instruction_cbae :: Instruction1
-instruction_cbae b = stubInstruction "0xcbae"
+instruction_cbae arg = stubInstruction "0xcbae"
 
 -- 0xcbaf "RES 5,A", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbaf :: Instruction1
-instruction_cbaf b = stubInstruction "0xcbaf"
+instruction_cbaf arg = stubInstruction "0xcbaf"
 
 -- 0xcbb0 "RES 6,B", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbb0 :: Instruction1
-instruction_cbb0 b = stubInstruction "0xcbb0"
+instruction_cbb0 arg = stubInstruction "0xcbb0"
 
 -- 0xcbb1 "RES 6,C", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbb1 :: Instruction1
-instruction_cbb1 b = stubInstruction "0xcbb1"
+instruction_cbb1 arg = stubInstruction "0xcbb1"
 
 -- 0xcbb2 "RES 6,D", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbb2 :: Instruction1
-instruction_cbb2 b = stubInstruction "0xcbb2"
+instruction_cbb2 arg = stubInstruction "0xcbb2"
 
 -- 0xcbb3 "RES 6,E", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbb3 :: Instruction1
-instruction_cbb3 b = stubInstruction "0xcbb3"
+instruction_cbb3 arg = stubInstruction "0xcbb3"
 
 -- 0xcbb4 "RES 6,H", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbb4 :: Instruction1
-instruction_cbb4 b = stubInstruction "0xcbb4"
+instruction_cbb4 arg = stubInstruction "0xcbb4"
 
 -- 0xcbb5 "RES 6,L", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbb5 :: Instruction1
-instruction_cbb5 b = stubInstruction "0xcbb5"
+instruction_cbb5 arg = stubInstruction "0xcbb5"
 
 -- 0xcbb6 "RES 6,(HL)", 2 byte operand, 16 cycles -,-,-,-
 instruction_cbb6 :: Instruction1
-instruction_cbb6 b = stubInstruction "0xcbb6"
+instruction_cbb6 arg = stubInstruction "0xcbb6"
 
 -- 0xcbb7 "RES 6,A", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbb7 :: Instruction1
-instruction_cbb7 b = stubInstruction "0xcbb7"
+instruction_cbb7 arg = stubInstruction "0xcbb7"
 
 -- 0xcbb8 "RES 7,B", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbb8 :: Instruction1
-instruction_cbb8 b = stubInstruction "0xcbb8"
+instruction_cbb8 arg = stubInstruction "0xcbb8"
 
 -- 0xcbb9 "RES 7,C", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbb9 :: Instruction1
-instruction_cbb9 b = stubInstruction "0xcbb9"
+instruction_cbb9 arg = stubInstruction "0xcbb9"
 
 -- 0xcbba "RES 7,D", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbba :: Instruction1
-instruction_cbba b = stubInstruction "0xcbba"
+instruction_cbba arg = stubInstruction "0xcbba"
 
 -- 0xcbbb "RES 7,E", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbbb :: Instruction1
-instruction_cbbb b = stubInstruction "0xcbbb"
+instruction_cbbb arg = stubInstruction "0xcbbb"
 
 -- 0xcbbc "RES 7,H", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbbc :: Instruction1
-instruction_cbbc b = stubInstruction "0xcbbc"
+instruction_cbbc arg = stubInstruction "0xcbbc"
 
 -- 0xcbbd "RES 7,L", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbbd :: Instruction1
-instruction_cbbd b = stubInstruction "0xcbbd"
+instruction_cbbd arg = stubInstruction "0xcbbd"
 
 -- 0xcbbe "RES 7,(HL)", 2 byte operand, 16 cycles -,-,-,-
 instruction_cbbe :: Instruction1
-instruction_cbbe b = stubInstruction "0xcbbe"
+instruction_cbbe arg = stubInstruction "0xcbbe"
 
 -- 0xcbbf "RES 7,A", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbbf :: Instruction1
-instruction_cbbf b = stubInstruction "0xcbbf"
+instruction_cbbf arg = stubInstruction "0xcbbf"
 
 -- 0xcbc0 "SET 0,B", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbc0 :: Instruction1
-instruction_cbc0 b = stubInstruction "0xcbc0"
+instruction_cbc0 arg = stubInstruction "0xcbc0"
 
 -- 0xcbc1 "SET 0,C", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbc1 :: Instruction1
-instruction_cbc1 b = stubInstruction "0xcbc1"
+instruction_cbc1 arg = stubInstruction "0xcbc1"
 
 -- 0xcbc2 "SET 0,D", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbc2 :: Instruction1
-instruction_cbc2 b = stubInstruction "0xcbc2"
+instruction_cbc2 arg = stubInstruction "0xcbc2"
 
 -- 0xcbc3 "SET 0,E", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbc3 :: Instruction1
-instruction_cbc3 b = stubInstruction "0xcbc3"
+instruction_cbc3 arg = stubInstruction "0xcbc3"
 
 -- 0xcbc4 "SET 0,H", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbc4 :: Instruction1
-instruction_cbc4 b = stubInstruction "0xcbc4"
+instruction_cbc4 arg = stubInstruction "0xcbc4"
 
 -- 0xcbc5 "SET 0,L", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbc5 :: Instruction1
-instruction_cbc5 b = stubInstruction "0xcbc5"
+instruction_cbc5 arg = stubInstruction "0xcbc5"
 
 -- 0xcbc6 "SET 0,(HL)", 2 byte operand, 16 cycles -,-,-,-
 instruction_cbc6 :: Instruction1
-instruction_cbc6 b = stubInstruction "0xcbc6"
+instruction_cbc6 arg = stubInstruction "0xcbc6"
 
 -- 0xcbc7 "SET 0,A", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbc7 :: Instruction1
-instruction_cbc7 b = stubInstruction "0xcbc7"
+instruction_cbc7 arg = stubInstruction "0xcbc7"
 
 -- 0xcbc8 "SET 1,B", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbc8 :: Instruction1
-instruction_cbc8 b = stubInstruction "0xcbc8"
+instruction_cbc8 arg = stubInstruction "0xcbc8"
 
 -- 0xcbc9 "SET 1,C", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbc9 :: Instruction1
-instruction_cbc9 b = stubInstruction "0xcbc9"
+instruction_cbc9 arg = stubInstruction "0xcbc9"
 
 -- 0xcbca "SET 1,D", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbca :: Instruction1
-instruction_cbca b = stubInstruction "0xcbca"
+instruction_cbca arg = stubInstruction "0xcbca"
 
 -- 0xcbcb "SET 1,E", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbcb :: Instruction1
-instruction_cbcb b = stubInstruction "0xcbcb"
+instruction_cbcb arg = stubInstruction "0xcbcb"
 
 -- 0xcbcc "SET 1,H", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbcc :: Instruction1
-instruction_cbcc b = stubInstruction "0xcbcc"
+instruction_cbcc arg = stubInstruction "0xcbcc"
 
 -- 0xcbcd "SET 1,L", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbcd :: Instruction1
-instruction_cbcd b = stubInstruction "0xcbcd"
+instruction_cbcd arg = stubInstruction "0xcbcd"
 
 -- 0xcbce "SET 1,(HL)", 2 byte operand, 16 cycles -,-,-,-
 instruction_cbce :: Instruction1
-instruction_cbce b = stubInstruction "0xcbce"
+instruction_cbce arg = stubInstruction "0xcbce"
 
 -- 0xcbcf "SET 1,A", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbcf :: Instruction1
-instruction_cbcf b = stubInstruction "0xcbcf"
+instruction_cbcf arg = stubInstruction "0xcbcf"
 
 -- 0xcbd0 "SET 2,B", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbd0 :: Instruction1
-instruction_cbd0 b = stubInstruction "0xcbd0"
+instruction_cbd0 arg = stubInstruction "0xcbd0"
 
 -- 0xcbd1 "SET 2,C", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbd1 :: Instruction1
-instruction_cbd1 b = stubInstruction "0xcbd1"
+instruction_cbd1 arg = stubInstruction "0xcbd1"
 
 -- 0xcbd2 "SET 2,D", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbd2 :: Instruction1
-instruction_cbd2 b = stubInstruction "0xcbd2"
+instruction_cbd2 arg = stubInstruction "0xcbd2"
 
 -- 0xcbd3 "SET 2,E", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbd3 :: Instruction1
-instruction_cbd3 b = stubInstruction "0xcbd3"
+instruction_cbd3 arg = stubInstruction "0xcbd3"
 
 -- 0xcbd4 "SET 2,H", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbd4 :: Instruction1
-instruction_cbd4 b = stubInstruction "0xcbd4"
+instruction_cbd4 arg = stubInstruction "0xcbd4"
 
 -- 0xcbd5 "SET 2,L", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbd5 :: Instruction1
-instruction_cbd5 b = stubInstruction "0xcbd5"
+instruction_cbd5 arg = stubInstruction "0xcbd5"
 
 -- 0xcbd6 "SET 2,(HL)", 2 byte operand, 16 cycles -,-,-,-
 instruction_cbd6 :: Instruction1
-instruction_cbd6 b = stubInstruction "0xcbd6"
+instruction_cbd6 arg = stubInstruction "0xcbd6"
 
 -- 0xcbd7 "SET 2,A", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbd7 :: Instruction1
-instruction_cbd7 b = stubInstruction "0xcbd7"
+instruction_cbd7 arg = stubInstruction "0xcbd7"
 
 -- 0xcbd8 "SET 3,B", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbd8 :: Instruction1
-instruction_cbd8 b = stubInstruction "0xcbd8"
+instruction_cbd8 arg = stubInstruction "0xcbd8"
 
 -- 0xcbd9 "SET 3,C", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbd9 :: Instruction1
-instruction_cbd9 b = stubInstruction "0xcbd9"
+instruction_cbd9 arg = stubInstruction "0xcbd9"
 
 -- 0xcbda "SET 3,D", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbda :: Instruction1
-instruction_cbda b = stubInstruction "0xcbda"
+instruction_cbda arg = stubInstruction "0xcbda"
 
 -- 0xcbdb "SET 3,E", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbdb :: Instruction1
-instruction_cbdb b = stubInstruction "0xcbdb"
+instruction_cbdb arg = stubInstruction "0xcbdb"
 
 -- 0xcbdc "SET 3,H", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbdc :: Instruction1
-instruction_cbdc b = stubInstruction "0xcbdc"
+instruction_cbdc arg = stubInstruction "0xcbdc"
 
 -- 0xcbdd "SET 3,L", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbdd :: Instruction1
-instruction_cbdd b = stubInstruction "0xcbdd"
+instruction_cbdd arg = stubInstruction "0xcbdd"
 
 -- 0xcbde "SET 3,(HL)", 2 byte operand, 16 cycles -,-,-,-
 instruction_cbde :: Instruction1
-instruction_cbde b = stubInstruction "0xcbde"
+instruction_cbde arg = stubInstruction "0xcbde"
 
 -- 0xcbdf "SET 3,A", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbdf :: Instruction1
-instruction_cbdf b = stubInstruction "0xcbdf"
+instruction_cbdf arg = stubInstruction "0xcbdf"
 
 -- 0xcbe0 "SET 4,B", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbe0 :: Instruction1
-instruction_cbe0 b = stubInstruction "0xcbe0"
+instruction_cbe0 arg = stubInstruction "0xcbe0"
 
 -- 0xcbe1 "SET 4,C", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbe1 :: Instruction1
-instruction_cbe1 b = stubInstruction "0xcbe1"
+instruction_cbe1 arg = stubInstruction "0xcbe1"
 
 -- 0xcbe2 "SET 4,D", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbe2 :: Instruction1
-instruction_cbe2 b = stubInstruction "0xcbe2"
+instruction_cbe2 arg = stubInstruction "0xcbe2"
 
 -- 0xcbe3 "SET 4,E", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbe3 :: Instruction1
-instruction_cbe3 b = stubInstruction "0xcbe3"
+instruction_cbe3 arg = stubInstruction "0xcbe3"
 
 -- 0xcbe4 "SET 4,H", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbe4 :: Instruction1
-instruction_cbe4 b = stubInstruction "0xcbe4"
+instruction_cbe4 arg = stubInstruction "0xcbe4"
 
 -- 0xcbe5 "SET 4,L", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbe5 :: Instruction1
-instruction_cbe5 b = stubInstruction "0xcbe5"
+instruction_cbe5 arg = stubInstruction "0xcbe5"
 
 -- 0xcbe6 "SET 4,(HL)", 2 byte operand, 16 cycles -,-,-,-
 instruction_cbe6 :: Instruction1
-instruction_cbe6 b = stubInstruction "0xcbe6"
+instruction_cbe6 arg = stubInstruction "0xcbe6"
 
 -- 0xcbe7 "SET 4,A", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbe7 :: Instruction1
-instruction_cbe7 b = stubInstruction "0xcbe7"
+instruction_cbe7 arg = stubInstruction "0xcbe7"
 
 -- 0xcbe8 "SET 5,B", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbe8 :: Instruction1
-instruction_cbe8 b = stubInstruction "0xcbe8"
+instruction_cbe8 arg = stubInstruction "0xcbe8"
 
 -- 0xcbe9 "SET 5,C", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbe9 :: Instruction1
-instruction_cbe9 b = stubInstruction "0xcbe9"
+instruction_cbe9 arg = stubInstruction "0xcbe9"
 
 -- 0xcbea "SET 5,D", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbea :: Instruction1
-instruction_cbea b = stubInstruction "0xcbea"
+instruction_cbea arg = stubInstruction "0xcbea"
 
 -- 0xcbeb "SET 5,E", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbeb :: Instruction1
-instruction_cbeb b = stubInstruction "0xcbeb"
+instruction_cbeb arg = stubInstruction "0xcbeb"
 
 -- 0xcbec "SET 5,H", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbec :: Instruction1
-instruction_cbec b = stubInstruction "0xcbec"
+instruction_cbec arg = stubInstruction "0xcbec"
 
 -- 0xcbed "SET 5,L", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbed :: Instruction1
-instruction_cbed b = stubInstruction "0xcbed"
+instruction_cbed arg = stubInstruction "0xcbed"
 
 -- 0xcbee "SET 5,(HL)", 2 byte operand, 16 cycles -,-,-,-
 instruction_cbee :: Instruction1
-instruction_cbee b = stubInstruction "0xcbee"
+instruction_cbee arg = stubInstruction "0xcbee"
 
 -- 0xcbef "SET 5,A", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbef :: Instruction1
-instruction_cbef b = stubInstruction "0xcbef"
+instruction_cbef arg = stubInstruction "0xcbef"
 
 -- 0xcbf0 "SET 6,B", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbf0 :: Instruction1
-instruction_cbf0 b = stubInstruction "0xcbf0"
+instruction_cbf0 arg = stubInstruction "0xcbf0"
 
 -- 0xcbf1 "SET 6,C", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbf1 :: Instruction1
-instruction_cbf1 b = stubInstruction "0xcbf1"
+instruction_cbf1 arg = stubInstruction "0xcbf1"
 
 -- 0xcbf2 "SET 6,D", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbf2 :: Instruction1
-instruction_cbf2 b = stubInstruction "0xcbf2"
+instruction_cbf2 arg = stubInstruction "0xcbf2"
 
 -- 0xcbf3 "SET 6,E", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbf3 :: Instruction1
-instruction_cbf3 b = stubInstruction "0xcbf3"
+instruction_cbf3 arg = stubInstruction "0xcbf3"
 
 -- 0xcbf4 "SET 6,H", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbf4 :: Instruction1
-instruction_cbf4 b = stubInstruction "0xcbf4"
+instruction_cbf4 arg = stubInstruction "0xcbf4"
 
 -- 0xcbf5 "SET 6,L", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbf5 :: Instruction1
-instruction_cbf5 b = stubInstruction "0xcbf5"
+instruction_cbf5 arg = stubInstruction "0xcbf5"
 
 -- 0xcbf6 "SET 6,(HL)", 2 byte operand, 16 cycles -,-,-,-
 instruction_cbf6 :: Instruction1
-instruction_cbf6 b = stubInstruction "0xcbf6"
+instruction_cbf6 arg = stubInstruction "0xcbf6"
 
 -- 0xcbf7 "SET 6,A", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbf7 :: Instruction1
-instruction_cbf7 b = stubInstruction "0xcbf7"
+instruction_cbf7 arg = stubInstruction "0xcbf7"
 
 -- 0xcbf8 "SET 7,B", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbf8 :: Instruction1
-instruction_cbf8 b = stubInstruction "0xcbf8"
+instruction_cbf8 arg = stubInstruction "0xcbf8"
 
 -- 0xcbf9 "SET 7,C", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbf9 :: Instruction1
-instruction_cbf9 b = stubInstruction "0xcbf9"
+instruction_cbf9 arg = stubInstruction "0xcbf9"
 
 -- 0xcbfa "SET 7,D", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbfa :: Instruction1
-instruction_cbfa b = stubInstruction "0xcbfa"
+instruction_cbfa arg = stubInstruction "0xcbfa"
 
 -- 0xcbfb "SET 7,E", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbfb :: Instruction1
-instruction_cbfb b = stubInstruction "0xcbfb"
+instruction_cbfb arg = stubInstruction "0xcbfb"
 
 -- 0xcbfc "SET 7,H", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbfc :: Instruction1
-instruction_cbfc b = stubInstruction "0xcbfc"
+instruction_cbfc arg = stubInstruction "0xcbfc"
 
 -- 0xcbfd "SET 7,L", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbfd :: Instruction1
-instruction_cbfd b = stubInstruction "0xcbfd"
+instruction_cbfd arg = stubInstruction "0xcbfd"
 
 -- 0xcbfe "SET 7,(HL)", 2 byte operand, 16 cycles -,-,-,-
 instruction_cbfe :: Instruction1
-instruction_cbfe b = stubInstruction "0xcbfe"
+instruction_cbfe arg = stubInstruction "0xcbfe"
 
 -- 0xcbff "SET 7,A", 2 byte operand, 8 cycles -,-,-,-
 instruction_cbff :: Instruction1
-instruction_cbff b = stubInstruction "0xcbff"
+instruction_cbff arg = stubInstruction "0xcbff"
 
 
 return []
