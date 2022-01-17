@@ -4,7 +4,7 @@ module CPU.Instruction where
 import Data.Bits (testBit, rotate)
 import Data.Map (fromList, Map)
 import Data.Word (Word8)
-import Lens.Micro.Platform ( (^.), (+~), set, ix, over, Lens' )
+import Lens.Micro.Platform ( (^.), (^?), set, ix, over, Lens' )
 import Test.QuickCheck.All (quickCheckAll)
 
 import CPU
@@ -39,9 +39,9 @@ instruction_03 = over bc (+1)
 
 -- 0x04 INC B, 1 byte operand, 4 cycles Z,0,H,-
 instruction_04 :: RunnableInstruction
-instruction_04 cpu = set zeroFlag (cpu ^. b == 255)
+instruction_04 cpu = set zeroFlag (cpu ^. b == 0xff)
     $ set subtractionFlag False
-    $ set halfCarryFlag (cpu ^. b == 255)
+    $ set halfCarryFlag (cpu ^. b == 0xff)
     $ over b (+1) cpu
 
 -- 0x05 DEC B, 1 byte operand, 4 cycles Z,1,H,-
@@ -79,15 +79,21 @@ instruction_09 cpu = set subtractionFlag False
 
 -- 0x0a "LD A,(BC)", 1 byte operand, 8 cycles -,-,-,-
 instruction_0a :: RunnableInstruction
-instruction_0a = stubInstruction "0x0a"
+instruction_0a cpu = set accumulator (unwrap result) cpu
+    where result = cpu ^? (ram . ix (cpu ^. bc))
+          unwrap (Just a) = a
+          unwrap Nothing = error "Instruction 0x0a went out of bounds"
 
 -- 0x0b DEC BC, 1 byte operand, 8 cycles -,-,-,-
 instruction_0b :: RunnableInstruction
-instruction_0b = stubInstruction "0x0b"
+instruction_0b = over bc (subtract 1)
 
 -- 0x0c INC C, 1 byte operand, 4 cycles Z,0,H,-
 instruction_0c :: RunnableInstruction
-instruction_0c = stubInstruction "0x0c"
+instruction_0c cpu = set zeroFlag ((cpu ^. c) == 0xff) 
+    $ set subtractionFlag False
+    $ set halfCarryFlag ((cpu ^. c) == 0xff)
+    $ over c (+1) cpu
 
 -- 0x0d DEC C, 1 byte operand, 4 cycles Z,1,H,-
 instruction_0d :: RunnableInstruction
