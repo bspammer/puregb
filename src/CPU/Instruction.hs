@@ -1,10 +1,11 @@
 {-# LANGUAGE TemplateHaskell #-}
 module CPU.Instruction where
 
+import Control.Lens ( (^.), (^?), set, ix, over, Lens' )
 import Data.Bits (testBit, rotate)
+import Data.Bits.Lens (bitAt)
 import Data.Map (fromList, Map)
 import Data.Word (Word8)
-import Lens.Micro.Platform ( (^.), (^?), set, ix, over, Lens' )
 import Test.QuickCheck.All (quickCheckAll)
 
 import CPU
@@ -46,7 +47,7 @@ instruction_04 cpu = set zeroFlag (cpu ^. b == 0xff)
 
 -- 0x05 DEC B, 1 byte operand, 4 cycles Z,1,H,-
 instruction_05 :: RunnableInstruction
-instruction_05 cpu = set zeroFlag (cpu ^. b == 0)
+instruction_05 cpu = set zeroFlag (cpu ^. b == 1)
     $ set subtractionFlag True
     $ set halfCarryFlag (cpu ^. b == 0)
     $ over b (subtract 1) cpu
@@ -97,19 +98,26 @@ instruction_0c cpu = set zeroFlag ((cpu ^. c) == 0xff)
 
 -- 0x0d DEC C, 1 byte operand, 4 cycles Z,1,H,-
 instruction_0d :: RunnableInstruction
-instruction_0d = stubInstruction "0x0d"
+instruction_0d cpu = set zeroFlag ((cpu ^. c) == 1)
+    $ set subtractionFlag True
+    $ set halfCarryFlag ((cpu ^. c) == 0)
+    $ over c (subtract 1) cpu
 
 -- 0x0e "LD C,d8", 2 byte operand, 8 cycles -,-,-,-
 instruction_0e :: Instruction1
-instruction_0e arg = stubInstruction "0x0e"
+instruction_0e = set c
 
 -- 0x0f RRCA, 1 byte operand, 4 cycles 0,0,0,C
 instruction_0f :: RunnableInstruction
-instruction_0f = stubInstruction "0x0f"
+instruction_0f cpu = set zeroFlag False
+    $ set subtractionFlag False
+    $ set halfCarryFlag False
+    $ set carryFlag (testBit (cpu ^. accumulator) 0)
+    $ over accumulator (`rotate` (-1)) cpu
 
 -- 0x10 STOP 0, 2 byte operand, 4 cycles -,-,-,-
 instruction_10 :: Instruction1
-instruction_10 arg = stubInstruction "0x10"
+instruction_10 = error "STOP command was executed"
 
 -- 0x11 "LD DE,d16", 3 byte operand, 12 cycles -,-,-,-
 instruction_11 :: Instruction2
@@ -117,27 +125,38 @@ instruction_11 = setRegister de
 
 -- 0x12 "LD (DE),A", 1 byte operand, 8 cycles -,-,-,-
 instruction_12 :: RunnableInstruction
-instruction_12 = stubInstruction "0x12"
+instruction_12 = setRamIndirect de accumulator
 
 -- 0x13 INC DE, 1 byte operand, 8 cycles -,-,-,-
 instruction_13 :: RunnableInstruction
-instruction_13 = stubInstruction "0x13"
+instruction_13 = over de (+1)
 
 -- 0x14 INC D, 1 byte operand, 4 cycles Z,0,H,-
 instruction_14 :: RunnableInstruction
-instruction_14 = stubInstruction "0x14"
+instruction_14 cpu = set zeroFlag ((cpu ^. d) == 0xff)
+    $ set subtractionFlag False
+    $ set halfCarryFlag ((cpu ^. d) == 0xff)
+    $ over d (+1) cpu
 
 -- 0x15 DEC D, 1 byte operand, 4 cycles Z,1,H,-
 instruction_15 :: RunnableInstruction
-instruction_15 = stubInstruction "0x15"
+instruction_15 cpu = set zeroFlag ((cpu ^. d) == 1)
+    $ set subtractionFlag True
+    $ set halfCarryFlag ((cpu ^. d) == 0)
+    $ over d (`subtract` 1) cpu
 
 -- 0x16 "LD D,d8", 2 byte operand, 8 cycles -,-,-,-
 instruction_16 :: Instruction1
-instruction_16 arg = stubInstruction "0x16"
+instruction_16 = set d
 
 -- 0x17 RLA, 1 byte operand, 4 cycles 0,0,0,C
 instruction_17 :: RunnableInstruction
-instruction_17 = stubInstruction "0x17"
+instruction_17 cpu = set zeroFlag False
+    $ set subtractionFlag False
+    $ set halfCarryFlag False
+    $ set carryFlag (testBit (cpu ^. accumulator) 7)
+    $ set (accumulator . bitAt 0) (if cpu ^. carryFlag then 1 else 0)
+    $ over accumulator (`rotate` 1) cpu
 
 -- 0x18 JR r8, 2 byte operand, 12 cycles -,-,-,-
 instruction_18 :: Instruction1

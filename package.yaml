@@ -32,8 +32,7 @@ dependencies:
 - utf8-string
 - file-embed
 - containers
-- microlens
-- microlens-platform
+- lens
 
 library:
   source-dirs: src
