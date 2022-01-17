@@ -3,7 +3,7 @@ module CPU.Instruction where
 
 import Data.Map (fromList, Map)
 import Data.Word (Word8)
-import Lens.Micro.Platform ( (^.), set, ix, over )
+import Lens.Micro.Platform ( (^.), set, ix, over, Lens' )
 import Test.QuickCheck.All (quickCheckAll)
 
 import CPU
@@ -16,12 +16,9 @@ type Instruction2 = Word8 -> Word8 -> RunnableInstruction
 stubInstruction :: String -> RunnableInstruction
 stubInstruction text = error $ "Instruction with no implementation: " ++ text
 
-setRegister r = set r Register
-setRegister' r b1 b2 = set r (joinRegister (SubRegister b1, SubRegister b2))
+setRegister r b1 b2 = set r (joinRegister (b1, b2))
 
-setRamIndirect registerLens subRegisterLens cpu = set (ram . ix (registerValue (cpu ^. registerLens))) (subRegisterValue (cpu ^. subRegisterLens)) cpu
-
-b = bc . registerHalf Front
+setRamIndirect registerLens subRegisterLens cpu = set (ram . ix (cpu ^. registerLens)) (cpu ^. subRegisterLens) cpu
 
 -- 0x00 NOP, 1 byte operand, 4 cycles -,-,-,-
 instruction_00 :: RunnableInstruction
@@ -29,7 +26,7 @@ instruction_00 = id
 
 -- 0x01 "LD BC,d16", 3 byte operand, 12 cycles -,-,-,-
 instruction_01 :: Instruction2
-instruction_01 = setRegister' bc
+instruction_01 = setRegister bc
 
 -- 0x02 "LD (BC),A", 1 byte operand, 8 cycles -,-,-,-
 instruction_02 :: RunnableInstruction
@@ -37,11 +34,14 @@ instruction_02 = setRamIndirect bc accumulator
 
 -- 0x03 INC BC, 1 byte operand, 8 cycles -,-,-,-
 instruction_03 :: RunnableInstruction
-instruction_03 = over bc (Register . (+1) . registerValue)
+instruction_03 = over bc (+1)
 
 -- 0x04 INC B, 1 byte operand, 4 cycles Z,0,H,-
 instruction_04 :: RunnableInstruction
-instruction_04 cpu = over (bc . registerHalf Front) (SubRegister . (+1) . subRegisterValue) $ set zeroFlag (cpu ^. b == SubRegister 255) cpu
+instruction_04 cpu = set zeroFlag (cpu ^. b == 255)
+    $ set subtractionFlag False
+    $ set halfCarryFlag (cpu ^. b == 255)
+    $ over b (+1) cpu
 
 -- 0x05 DEC B, 1 byte operand, 4 cycles Z,1,H,-
 instruction_05 :: RunnableInstruction
@@ -93,7 +93,7 @@ instruction_10 b = stubInstruction "0x10"
 
 -- 0x11 "LD DE,d16", 3 byte operand, 12 cycles -,-,-,-
 instruction_11 :: Instruction2
-instruction_11 = setRegister' de
+instruction_11 = setRegister de
 
 -- 0x12 "LD (DE),A", 1 byte operand, 8 cycles -,-,-,-
 instruction_12 :: RunnableInstruction
@@ -157,7 +157,7 @@ instruction_20 b = stubInstruction "0x20"
 
 -- 0x21 "LD HL,d16", 3 byte operand, 12 cycles -,-,-,-
 instruction_21 :: Instruction2
-instruction_21 = setRegister' hl
+instruction_21 = setRegister hl
 
 -- 0x22 "LD (HL+),A", 1 byte operand, 8 cycles -,-,-,-
 instruction_22 :: RunnableInstruction
@@ -221,7 +221,7 @@ instruction_30 b = stubInstruction "0x30"
 
 -- 0x31 "LD SP,d16", 3 byte operand, 12 cycles -,-,-,-
 instruction_31 :: Instruction2
-instruction_31 = setRegister' sp
+instruction_31 = setRegister sp
 
 -- 0x32 "LD (HL-),A", 1 byte operand, 8 cycles -,-,-,-
 instruction_32 :: RunnableInstruction
