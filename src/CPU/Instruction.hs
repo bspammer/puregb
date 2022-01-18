@@ -217,25 +217,33 @@ instruction_20 arg cpu = over pc (if not (cpu ^. zeroFlag) then (+ fromIntegral 
 instruction_21 :: Instruction2
 instruction_21 = setRegister hl
 
+prop_instruction_22_twice word8 = let startCPU = set accumulator word8 exampleZeroCPU in
+    (instruction_22 . instruction_22) startCPU == set hl 2 (set (ram . ix 0) word8 (set (ram . ix 1) word8 startCPU))
 -- 0x22 "LD (HL+),A", 1 byte operand, 8 cycles -,-,-,-
 instruction_22 :: RunnableInstruction
-instruction_22 = stubInstruction "0x22"
+instruction_22 = over hl (+1) . setRamIndirect hl accumulator
 
 -- 0x23 INC HL, 1 byte operand, 8 cycles -,-,-,-
 instruction_23 :: RunnableInstruction
-instruction_23 = stubInstruction "0x23"
+instruction_23 = over hl (+1)
 
 -- 0x24 INC H, 1 byte operand, 4 cycles Z,0,H,-
 instruction_24 :: RunnableInstruction
-instruction_24 = stubInstruction "0x24"
+instruction_24 cpu = set zeroFlag ((cpu ^. h) == 0xff)
+    $ set subtractionFlag False
+    $ set halfCarryFlag ((cpu ^. h) == 0xff)
+    $ over h (+1) cpu
 
 -- 0x25 DEC H, 1 byte operand, 4 cycles Z,1,H,-
 instruction_25 :: RunnableInstruction
-instruction_25 = stubInstruction "0x25"
+instruction_25 cpu = set zeroFlag ((cpu ^. h) == 1)
+    $ set subtractionFlag True
+    $ set halfCarryFlag ((cpu ^. h) == 0)
+    $ over h (`subtract` 1) cpu
 
 -- 0x26 "LD H,d8", 2 byte operand, 8 cycles -,-,-,-
 instruction_26 :: Instruction1
-instruction_26 arg = stubInstruction "0x26"
+instruction_26 = set h
 
 -- 0x27 DAA, 1 byte operand, 4 cycles Z,-,0,C
 instruction_27 :: RunnableInstruction
