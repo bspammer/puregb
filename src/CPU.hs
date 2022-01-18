@@ -1,11 +1,11 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RankNTypes #-}
 module CPU where
+
+import Control.Lens ( (^.), (.~), (&), _1, _2, makeLenses, lens, Lens' )
 import Data.Bits (shiftL, shiftR, xor, (.&.), (.|.))
 import Data.Word (Word32, Word16, Word8)
 import Data.Array (Array, array)
-import Lens.Micro
-import Lens.Micro.Platform ( makeLenses )
 import Test.QuickCheck (Arbitrary)
 import Test.QuickCheck.All (quickCheckAll)
 

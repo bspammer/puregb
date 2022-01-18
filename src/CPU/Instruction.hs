@@ -2,6 +2,7 @@
 module CPU.Instruction where
 
 import Control.Lens ( (^.), (^?), set, ix, over, Lens' )
+import Data.Int (Int8)
 import Data.Bits (testBit, rotate)
 import Data.Bits.Lens (bitAt)
 import Data.Map (fromList, Map)
@@ -66,8 +67,8 @@ instruction_07 cpu = set zeroFlag False
 
 -- 0x08 "LD (a16),SP", 3 byte operand, 20 cycles -,-,-,-
 instruction_08 :: Instruction2
-instruction_08 arg1 arg2 cpu = 
-    set (ram . ix (joinRegister (arg1, arg2))) (cpu ^. (sp . registerHalf Front)) 
+instruction_08 arg1 arg2 cpu =
+    set (ram . ix (joinRegister (arg1, arg2))) (cpu ^. (sp . registerHalf Front))
     $ set (ram . ix (joinRegister (arg1, arg2) + 1)) (cpu ^. (sp . registerHalf Back)) cpu
 
 -- 0x09 "ADD HL,BC", 1 byte operand, 8 cycles -,0,H,C
@@ -91,7 +92,7 @@ instruction_0b = over bc (subtract 1)
 
 -- 0x0c INC C, 1 byte operand, 4 cycles Z,0,H,-
 instruction_0c :: RunnableInstruction
-instruction_0c cpu = set zeroFlag ((cpu ^. c) == 0xff) 
+instruction_0c cpu = set zeroFlag ((cpu ^. c) == 0xff)
     $ set subtractionFlag False
     $ set halfCarryFlag ((cpu ^. c) == 0xff)
     $ over c (+1) cpu
@@ -155,24 +156,31 @@ instruction_17 cpu = set zeroFlag False
     $ set subtractionFlag False
     $ set halfCarryFlag False
     $ set carryFlag (testBit (cpu ^. accumulator) 7)
-    $ set (accumulator . bitAt 0) (if cpu ^. carryFlag then 1 else 0)
+    $ set (accumulator . bitAt 0) (cpu ^. carryFlag)
     $ over accumulator (`rotate` 1) cpu
 
 -- 0x18 JR r8, 2 byte operand, 12 cycles -,-,-,-
 instruction_18 :: Instruction1
-instruction_18 arg = stubInstruction "0x18"
+instruction_18 arg = over pc (+ fromIntegral (fromIntegral arg :: Int8)) -- cast argument to signed Int8 to account for negative jumping
 
 -- 0x19 "ADD HL,DE", 1 byte operand, 8 cycles -,0,H,C
 instruction_19 :: RunnableInstruction
-instruction_19 = stubInstruction "0x19"
+instruction_19 cpu = set subtractionFlag False
+    $ set halfCarryFlag halfCarry
+    $ set carryFlag carry
+    $ set hl result cpu
+    where (result, halfCarry, carry) = add2 (cpu ^. hl) (cpu ^. de)
 
 -- 0x1a "LD A,(DE)", 1 byte operand, 8 cycles -,-,-,-
 instruction_1a :: RunnableInstruction
-instruction_1a = stubInstruction "0x1a"
+instruction_1a cpu = set accumulator (unwrap result) cpu
+    where result = cpu ^? (ram . ix (cpu ^. de))
+          unwrap (Just a) = a
+          unwrap Nothing = error "Instruction 0x1a went out of bounds"
 
 -- 0x1b DEC DE, 1 byte operand, 8 cycles -,-,-,-
 instruction_1b :: RunnableInstruction
-instruction_1b = stubInstruction "0x1b"
+instruction_1b = over de (subtract 1)
 
 -- 0x1c INC E, 1 byte operand, 4 cycles Z,0,H,-
 instruction_1c :: RunnableInstruction
