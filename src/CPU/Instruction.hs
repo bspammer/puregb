@@ -3,7 +3,7 @@ module CPU.Instruction where
 
 import Control.Lens ( (^.), (^?), set, ix, over, Lens' )
 import Data.Int (Int8)
-import Data.Bits (testBit, rotate)
+import Data.Bits (rotate)
 import Data.Bits.Lens (bitAt)
 import Data.Map (fromList, Map)
 import Data.Word (Word8)
@@ -62,7 +62,7 @@ instruction_07 :: RunnableInstruction
 instruction_07 cpu = set zeroFlag False
     $ set subtractionFlag False
     $ set halfCarryFlag False
-    $ set carryFlag (testBit (cpu ^. accumulator) 7)
+    $ set carryFlag (cpu ^. (accumulator . bitAt 7))
     $ over accumulator (`rotate` 1) cpu
 
 -- 0x08 "LD (a16),SP", 3 byte operand, 20 cycles -,-,-,-
@@ -113,7 +113,7 @@ instruction_0f :: RunnableInstruction
 instruction_0f cpu = set zeroFlag False
     $ set subtractionFlag False
     $ set halfCarryFlag False
-    $ set carryFlag (testBit (cpu ^. accumulator) 0)
+    $ set carryFlag (cpu ^. (accumulator . bitAt 0))
     $ over accumulator (`rotate` (-1)) cpu
 
 -- 0x10 STOP 0, 2 byte operand, 4 cycles -,-,-,-
@@ -155,7 +155,7 @@ instruction_17 :: RunnableInstruction
 instruction_17 cpu = set zeroFlag False
     $ set subtractionFlag False
     $ set halfCarryFlag False
-    $ set carryFlag (testBit (cpu ^. accumulator) 7)
+    $ set carryFlag (cpu ^. (accumulator . bitAt 7))
     $ set (accumulator . bitAt 0) (cpu ^. carryFlag)
     $ over accumulator (`rotate` 1) cpu
 
@@ -184,23 +184,34 @@ instruction_1b = over de (subtract 1)
 
 -- 0x1c INC E, 1 byte operand, 4 cycles Z,0,H,-
 instruction_1c :: RunnableInstruction
-instruction_1c = stubInstruction "0x1c"
+instruction_1c cpu = set zeroFlag ((cpu ^. e) == 0xff)
+    $ set subtractionFlag False
+    $ set halfCarryFlag ((cpu ^. e) == 0xff)
+    $ over e (+1) cpu
 
 -- 0x1d DEC E, 1 byte operand, 4 cycles Z,1,H,-
 instruction_1d :: RunnableInstruction
-instruction_1d = stubInstruction "0x1d"
+instruction_1d cpu = set zeroFlag ((cpu ^. e) == 1)
+    $ set subtractionFlag True
+    $ set halfCarryFlag ((cpu ^. e) == 0)
+    $ over e (`subtract` 1) cpu
 
 -- 0x1e "LD E,d8", 2 byte operand, 8 cycles -,-,-,-
 instruction_1e :: Instruction1
-instruction_1e arg = stubInstruction "0x1e"
+instruction_1e = set e
 
 -- 0x1f RRA, 1 byte operand, 4 cycles 0,0,0,C
 instruction_1f :: RunnableInstruction
-instruction_1f = stubInstruction "0x1f"
+instruction_1f cpu = set zeroFlag False
+    $ set subtractionFlag False
+    $ set halfCarryFlag False
+    $ set carryFlag (cpu ^. (accumulator . bitAt 0))
+    $ set (accumulator . bitAt 7) (cpu ^. carryFlag)
+    $ over accumulator (`rotate` (-1)) cpu
 
 -- 0x20 "JR NZ,r8", 2 byte operand, 12/8 cycles -,-,-,-
 instruction_20 :: Instruction1
-instruction_20 arg = stubInstruction "0x20"
+instruction_20 arg cpu = over pc (if not (cpu ^. zeroFlag) then (+ fromIntegral (fromIntegral arg :: Int8)) else id) cpu
 
 -- 0x21 "LD HL,d16", 3 byte operand, 12 cycles -,-,-,-
 instruction_21 :: Instruction2
